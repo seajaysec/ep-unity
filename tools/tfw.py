@@ -40,6 +40,23 @@ def version_string(ver: bytes) -> str:
     return f"{s}+{build}" if build else s
 
 
+def crc16_xmodem(data: bytes, start: int = 0) -> int:
+    """CRC-16/XMODEM: poly 0x1021, init 0x0000, no reflection, no final XOR.
+
+    This is the algorithm behind the babecafe header checksum @5-6 (stored
+    big-endian), computed over data[0x40:] to end of file. The inner beefcafe
+    header carries the same CRC over data[0x80:] at bytes 0x49-0x4A. Verified
+    against every current official TE .tfw (EP-133 / EP-40 / EP-1320 and the
+    rest of the line).
+    """
+    crc = 0
+    for b in data[start:]:
+        crc ^= b << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
+    return crc
+
+
 def parse_tfw(data: bytes) -> dict:
     if data[0:4] != bytes.fromhex("babecafe"):
         raise ValueError("missing babecafe magic")
@@ -61,6 +78,22 @@ def parse_tfw(data: bytes) -> dict:
         "transfer_offset": 64,
         "transfer_len": len(data) - 64,
     }
+    # Outer checksum @5-6 is CRC-16/XMODEM over data[0x40:] (verified on all
+    # current TE .tfw releases).
+    stored_crc = (data[5] << 8) | data[6]
+    info["checksum_algo"] = "crc16/xmodem over data[0x40:]"
+    info["checksum_valid"] = stored_crc == crc16_xmodem(data, 0x40)
+    # Inner beefcafe header mirrors the SKU and carries its own CRC-16/XMODEM
+    # over data[0x80:] at 0x49-0x4A, plus a size field == len(data) - 128.
+    if info["beefcafe"] and len(data) >= 0x5B:
+        inner_stored = (data[0x49] << 8) | data[0x4A]
+        info["inner_sku"] = sku_bytes_to_string(data[0x57:0x5B])
+        info["inner_size_field"] = int.from_bytes(data[0x45:0x49], "big")
+        info["inner_checksum_valid"] = inner_stored == crc16_xmodem(data, 0x80)
+    # 256-byte signature slot @0x380 (RSA-2048 sized); zero on the unsigned EP
+    # images, populated on TE's signed devices. Encrypted payload begins @0x480.
+    if len(data) >= 0x480:
+        info["signed"] = any(data[0x380:0x480])
     # Encrypted app region (observed on EP 2.5.1)
     if len(data) >= 0x400 + 4:
         blob_off = 0x400
@@ -76,8 +109,13 @@ def parse_tfw(data: bytes) -> dict:
 def rewrite_sku(data: bytes, new_sku: str) -> bytes:
     out = bytearray(data)
     out[15:19] = sku_string_to_bytes(new_sku)
-    # Header checksum @5-6 is not documented as CRC of body; leave unless we learn otherwise.
-    # Caller should compare device acceptance with/without checksum refresh.
+    # The checksum @5-6 is CRC-16/XMODEM over data[0x40:] (see crc16_xmodem).
+    # The outer SKU @15-18 sits *before* 0x40, so it is outside the CRC's range:
+    # rewriting it here does NOT invalidate the checksum, no refresh needed.
+    # (The inner beefcafe header mirrors the SKU at 0x57, which IS inside the
+    # outer CRC range; if a future rewrite touches that too, recompute with
+    # crc16_xmodem(out, 0x40) into out[5:7] big-endian, and the inner CRC with
+    # crc16_xmodem(out, 0x80) into out[0x49:0x4B].)
     return bytes(out)
 
 
