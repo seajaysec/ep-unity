@@ -8,8 +8,22 @@ import { parseTfw } from './tfw.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
-test('beginPayload matches Firmware DFU_BEGIN layout', () => {
-  const data = new Uint8Array(readFileSync(join(root, 'fw/ep-40_firmware_2_5_1.tfw')))
+/**
+ * Firmware images are TE's, so they are not in this repo. Tests needing one skip
+ * rather than fail — a fresh clone goes green; anyone with the files gets the
+ * full suite.
+ */
+function fixture(path) {
+  try {
+    return new Uint8Array(readFileSync(path))
+  } catch {
+    return null
+  }
+}
+
+test('beginPayload matches Firmware DFU_BEGIN layout', (t) => {
+  const data = fixture(join(root, 'fw/ep-40_firmware_2_5_1.tfw'))
+  if (!data) return t.skip('fw/ep-40_firmware_2_5_1.tfw not present')
   const p = beginPayload(data)
   assert.equal(p[0], 2) // DFU_BEGIN
   assert.deepEqual([...p.subarray(1, 9)], [...data.subarray(7, 15)]) // version
@@ -20,8 +34,9 @@ test('beginPayload matches Firmware DFU_BEGIN layout', () => {
   assert.equal(p[18], data[4])
 })
 
-test('prepareImage rewrites to device SKU', () => {
-  const data = new Uint8Array(readFileSync(join(root, 'fw/ep-40_firmware_2_5_1.tfw')))
+test('prepareImage rewrites to device SKU', (t) => {
+  const data = fixture(join(root, 'fw/ep-40_firmware_2_5_1.tfw'))
+  if (!data) return t.skip('fw/ep-40_firmware_2_5_1.tfw not present')
   const prep = prepareImage(data, 'TE032AS001')
   assert.equal(prep.rewritten, true)
   assert.equal(prep.fromSku, 'TE032AS006')
