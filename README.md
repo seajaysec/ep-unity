@@ -66,6 +66,32 @@ python3 tools/tfw_mcuboot.py info ep-133_firmware_2_5_1.tfw
 
 Firmware files are not included — point these at images you downloaded from TE.
 
+### The header checksum, and a trap if you extend this
+
+The two bytes at offsets 5–6 are **CRC-16/XMODEM over `data[0x40:]`**, identified by
+[Charles Vestal](https://github.com/charlesvestal) and verified against every current
+official TE release.
+
+That boundary is why the whole four-byte trick works. The SKU at offsets 15–18 sits
+*before* `0x40`, outside the CRC's coverage — rewriting it cannot invalidate the
+checksum, so no refresh is needed. That is structural, not luck.
+
+**The trap:** the inner `beefcafe` header mirrors the SKU at `0x57`, and `0x57` *is*
+inside the outer CRC's range. Anything that rewrites the inner SKU must recompute both
+checksums or the file will no longer verify:
+
+```python
+out[5:7]       = crc16_xmodem(out, 0x40).to_bytes(2, "big")   # outer
+out[0x49:0x4B] = crc16_xmodem(out, 0x80).to_bytes(2, "big")   # inner
+```
+
+`rewrite_sku()` deliberately touches only the outer SKU, so it needs neither. Worth
+knowing before you reach for the inner one.
+
+For what it's worth, a cross-flashed image with a *mismatched* inner SKU — outer
+rewritten to EP-133, inner still reading EP-40 — was accepted and booted by the
+hardware. The inner field does not appear to be checked on this path.
+
 ## Research notes
 
 | Doc | Topic |
