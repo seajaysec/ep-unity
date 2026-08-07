@@ -1,0 +1,42 @@
+# --- Never publish: other people's binaries -------------------------------
+# TE's firmware images and their updater app. The whole premise of this project
+# is that you fetch these from TE yourself; mirroring them here would undo that.
+fw/
+vendor/
+
+# --- Never publish: this unit's data --------------------------------------
+# Device backups, and every capture log that carries the hardware serial.
+backups/
+docs/research/dfu-captures/
+docs/research/dfu-lab/
+docs/research/live-device-*.json
+docs/research/r2-stage1/
+
+# These two write-ups still quote the serial. Scrub them before un-ignoring.
+docs/research/dfu-roundtrip.md
+docs/research/NOR-CONCLUSION.md
+
+# --- Never publish: private correspondence and infrastructure -------------
+docs/disclosure/
+ops/
+tools/stage_ghost_post.sh
+tools/stage_ghost_draft.sh
+tools/deploy_web.sh
+
+# --- Never publish: superseded blog artefacts -----------------------------
+# The long-form original and every generated file. The .md sources are the
+# public record; the HTML is rebuildable and just noise in a diff.
+docs/blog/four-bytes.html
+docs/blog/four-bytes.ghost.html
+docs/blog/*.build.html
+docs/blog/*.build.ghost.html
+docs/blog/four-bytes.merged.ghost.html
+
+# --- Housekeeping ---------------------------------------------------------
+.venv
+.DS_Store
+__pycache__/
+*.pyc
+.vscode/
+.superpowers/
+docs/superpowers/

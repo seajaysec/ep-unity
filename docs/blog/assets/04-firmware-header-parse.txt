@@ -1,0 +1,1 @@
+e[0]!=186||e[1]!=190||e[2]!=202||e[3]!=254)throw new Error("not a valid firmware file");this.firmware_type=e[4],this.checksum=[e[5],e[6]],this.version=[e[7],e[8],e[9],e[10],e[11],e[12],e[13],e[14]],this.sku=[e[15],e[16],e[17],e[18]],this.size=[this.data.length-64>>24&255,this.dat

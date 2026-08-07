@@ -1,0 +1,6 @@
+
+/* --- firmware demos (panel 6) --- */
+.demo-list { display: grid; gap: 0.9rem; margin: 0 0 1rem; }
+.demo { display: grid; gap: 0.3rem; }
+.demo-go { justify-self: start; text-align: left; }
+.demo-blurb { margin: 0; max-width: 44rem; }

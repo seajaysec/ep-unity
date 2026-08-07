@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ep-unity</title>
+  <meta name="description" content="Cross-load TE032-family .tfw images: rewrite the SKU header and flash over WebMIDI. Firmware comes from Teenage Engineering’s CDN; we don’t host their updater." />
+  <meta name="theme-color" content="#141516" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23141516'/%3E%3Crect x='6' y='9' width='20' height='4' fill='%23ff5a00'/%3E%3Crect x='6' y='19' width='20' height='4' fill='%238a8680'/%3E%3C/svg%3E" />
+  <!-- Fonts are self-hosted (tools/fetch_fonts.py). A bench with no wifi was
+       the one place this tool most needs to work, and the CDN was the only
+       thing making first paint need the network. -->
+  <link rel="stylesheet" href="./fonts.css" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div class="brand">
+        <h1>ep‑unity</h1>
+        <p class="brand-sub" id="brand-sub">load an image · connect a unit
+see the four-byte rewrite</p>
+      </div>
+      <button type="button" class="te-link" id="connect">connect device</button>
+    </header>
+
+    <section class="capability" id="capability" hidden role="alert">
+      <p class="capability-title" id="capability-title"></p>
+      <p class="hint" id="capability-detail"></p>
+    </section>
+
+    <p class="warn" id="connect-warn" hidden></p>
+
+    <div class="lede">
+      <p>
+        TE’s updater only ships firmware for the <em>plugged-in</em> SKU.
+        Here you pick any TE032 <code>.tfw</code>; the page shows the
+        <strong>four header SKU bytes</strong> changing to match the connected unit,
+        then flashes that image over WebMIDI.
+      </p>
+      <p>
+        The firmware stays as Teenage Engineering shipped it — only the header SKU changes.
+        Read the
+        <a href="https://linecross.ing/ko-ii-boots-as-a-riddim/" target="_blank" rel="noreferrer">lab notebook / disclosure write-up</a>
+        before you flash anything.
+      </p>
+      <p>
+        Needs WebMIDI: <strong>Chrome or Edge on desktop</strong>, or <strong>Chrome on Android</strong>
+        over USB-C — handy at a bench with no laptop. No browser on iPhone or iPad can run this.
+      </p>
+    </div>
+
+    <section class="identity" id="identity" hidden>
+      <div class="id-head">
+        <h2>device identity</h2>
+        <p class="hint">
+          The <strong>serial</strong> is the stable hardware anchor.
+        </p>
+        <p class="hint">
+          After an OS swap or <code>err</code> loop, GREET SKU / product name follow the
+          flashed image — serial does not. Write it down (and copy it) before any experiment.
+        </p>
+      </div>
+      <div class="id-serial-row">
+        <div>
+          <p class="id-label">serial</p>
+          <p class="id-serial" id="id-serial">—</p>
+        </div>
+        <button type="button" class="ghost-btn" id="copy-serial" disabled>copy serial</button>
+      </div>
+      <dl class="id-meta" id="id-meta">
+        <div><dt>current GREET sku</dt><dd id="id-sku">—</dd></div>
+        <div><dt>hardware sku (first seen)</dt><dd id="id-hw-sku">—</dd></div>
+        <div><dt>product / mode / os</dt><dd id="id-product">—</dd></div>
+        <div><dt>MIDI sysex device id</dt><dd id="id-midi">—</dd></div>
+        <div><dt>this browser</dt><dd id="id-saved">—</dd></div>
+      </dl>
+      <p class="hint dim" id="id-note"></p>
+    </section>
+
+    <section class="device-bar" id="device-bar" hidden>
+      <span class="dot" id="device-dot" data-state="off"></span>
+      <span id="device-label">not connected</span>
+      <span class="storage" id="device-storage" hidden></span>
+      <button type="button" class="ghost-btn demo-btn" id="demo-btn" hidden disabled>
+        play 10s demo
+      </button>
+      <span class="demo-note" id="demo-status"></span>
+    </section>
+
+    <section class="recovery" id="bootloader-recovery" hidden>
+      <h2>bootloader · RDY</h2>
+      <p class="hint" id="bootloader-recovery-copy">
+        The unit is in update mode (screen shows <strong>RDY</strong>).
+        That usually means the last image failed validation — Medieval’s KEYHASH does not match
+        EP-133/EP-40, so the board soft-rejects and stays here.
+      </p>
+      <p class="hint">
+        MIDI/DFU still work; sample FILE does not.
+      </p>
+      <p class="hint">
+        Same rule as everywhere else: we only link TE’s catalog —
+        <strong>you</strong> download the stock <code>.tfw</code>, drop it below, check the risks,
+        and flash. We do not fetch firmware binaries.
+      </p>
+      <div class="actions">
+        <a class="go" id="recover-manual" href="#" target="_blank" rel="noreferrer">download stock EP-133 .tfw ↗</a>
+        <button type="button" class="ghost-btn" id="recover-focus-drop">I’ve got the file — show drop zone</button>
+      </div>
+      <p class="hint dim" id="recover-status"></p>
+    </section>
+
+    <section class="stage" aria-label="rewrite and flash">
+      <div class="rail">
+        <h2>1 · firmware image</h2>
+        <p class="hint">
+          This page makes no requests to teenage.engineering, for anything.
+          Every link below is one <strong>you</strong> choose to click.
+        </p>
+        <p class="hint">
+          The products it knows about are listed below. To point it at different versions,
+          save TE’s
+          <a id="releases-link" href="https://teenage.engineering/_software/releases.json" target="_blank" rel="noreferrer">releases.json</a>
+          and drop it here — it replaces the list and is kept in this browser.
+        </p>
+        <p class="hint">
+          Drop any TE032-family <code>.tfw</code>. Panel&nbsp;2 shows the live
+          <strong>image → flash target</strong> SKU transform.
+        </p>
+        <p class="hint">
+          Optional wire-file export is under flash — archive-style, not required to flash.
+        </p>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Drop or choose a .tfw file">
+          <input type="file" id="file" accept=".tfw,.json,application/octet-stream,application/json" hidden />
+          <p class="drop-title" id="drop-title">drop a .tfw</p>
+          <p class="drop-sub">or click to choose · releases.json works here too</p>
+          <p class="drop-file" id="drop-file" hidden></p>
+        </div>
+        <p class="warn" id="drop-warn" hidden></p>
+        <ul class="fw-links" id="fw-links"></ul>
+        <p class="hint dim" id="fw-catalog-status" aria-live="polite">loading catalog…</p>
+        <label class="risk experimental">
+          <input type="checkbox" id="medieval-exp" />
+          <span>
+            Show <strong>EP-1320 Medieval</strong> in the catalog (experimental).<br />
+            Different KEYHASH — on EP-133/40 it soft-rejects to RDY / bootloader. Off by default.
+          </span>
+        </label>
+        <p class="warn" id="medieval-warn" hidden></p>
+      </div>
+
+      <div class="rail rewrite-rail">
+        <h2>2 · SKU rewrite</h2>
+        <p class="hint">
+          DFU_BEGIN only accepts a header SKU that matches the unit.
+        </p>
+        <p class="hint">
+          That rewrite happens <strong>in memory on flash</strong> — you do not need a pre-patched file.
+        </p>
+        <div class="xform" id="xform" data-state="idle" aria-live="polite">
+          <div class="xform-side" data-role="image">
+            <span class="xform-label">image in file</span>
+            <span class="xform-product" id="xform-from-product">—</span>
+            <span class="xform-sku" id="xform-from-sku">drop a .tfw</span>
+          </div>
+          <div class="xform-mid">
+            <span class="xform-arrow" aria-hidden="true">→</span>
+            <span class="xform-verb" id="xform-verb">waiting</span>
+          </div>
+          <div class="xform-side" data-role="device">
+            <span class="xform-label">flash target</span>
+            <span class="xform-product" id="xform-to-product">—</span>
+            <span class="xform-sku" id="xform-to-sku">connect device</span>
+          </div>
+        </div>
+        <p class="xform-note" id="xform-note">
+          Connect a device and load a <code>.tfw</code> to see whether the header SKU must change.
+        </p>
+        <dl class="meta" id="meta">
+          <div><dt>file sku</dt><dd>—</dd></div>
+          <div><dt>version</dt><dd>—</dd></div>
+          <div><dt>size</dt><dd>—</dd></div>
+          <div><dt>will send as</dt><dd id="meta-target">connect a device</dd></div>
+        </dl>
+        <div class="hex-toolbar" id="hex-toolbar" hidden>
+          <span class="hex-caption">header · first 64 bytes</span>
+          <div class="hex-toggle" role="group" aria-label="Header before or after SKU rewrite">
+            <button type="button" class="hex-btn" id="hex-before" aria-pressed="false">before</button>
+            <button type="button" class="hex-btn" id="hex-after" aria-pressed="true">after</button>
+          </div>
+        </div>
+        <div class="hex" id="hex">waiting for a file…</div>
+        <p class="hint dim" id="hex-summary" aria-live="polite"></p>
+      </div>
+
+      <div class="rail result">
+        <h2>3 · flash</h2>
+        <blockquote class="te-quote">
+          <p>
+            Cross-flashing is unsupported. Field units use different NOR flash types and
+            densities. Publishing should warn about incompatibility, data loss, bricking,
+            and warranty void.
+          </p>
+          <cite>
+            Teenage Engineering EP-series guidance on field NOR variance (Jul&nbsp;2026) —
+            paraphrased; not a marketing endorsement.
+          </cite>
+        </blockquote>
+        <p class="hint nor-hint">
+          Lab note: legacy EP-133 boards often use Winbond W25Q512JV (64&nbsp;MiB);
+          newer units advertise 128&nbsp;MB sample pools.
+        </p>
+        <p class="hint nor-hint">
+          App firmware is MCUboot-encrypted — we cannot patch density tables from the host.
+          See the
+          <a href="https://linecross.ing/ko-ii-boots-as-a-riddim/" target="_blank" rel="noreferrer">write-up / disclosure timeline</a>.
+        </p>
+        <label class="risk">
+          <input type="checkbox" id="risk" />
+          <span>I understand this is unsupported and can brick, corrupt data, or void warranty.</span>
+        </label>
+        <label class="risk">
+          <input type="checkbox" id="risk-nor" />
+          <span>I know this unit’s NOR density (64 vs 128&nbsp;MiB) and accept the risk if the image’s filesystem layout does not match.</span>
+        </label>
+        <label class="risk">
+          <input type="checkbox" id="risk-serial" />
+          <span>I have copied / written down this unit’s <strong>serial</strong> (and will keep the user-content backup).</span>
+        </label>
+        <div class="actions">
+          <button type="button" class="go" id="flash" disabled>flash on device</button>
+        </div>
+        <p class="hint dim">
+          <button type="button" class="linkish" id="download" disabled>export wire .tfw</button>
+          — only if you want the rewritten header on disk; flash does not need it.
+        </p>
+        <p class="hint dim" id="flash-hint">
+          Connect + load a <code>.tfw</code> + check the risks. Panel 2 shows the SKU rewrite before you commit.
+        </p>
+        <p class="warn" id="supertone-warn" hidden></p>
+        <div class="actions" id="supertone-actions" style="margin-top:0.5rem">
+          <button type="button" class="ghost-btn" id="supertone-sanitize" hidden>
+            strip Supertone for EP-133
+          </button>
+        </div>
+        <div class="progress" id="progress" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="firmware flash progress">
+          <div class="progress-bar" id="progress-bar"></div>
+          <span id="progress-label"></span>
+        </div>
+        <p class="warn" id="warn" hidden></p>
+        <p class="status" id="status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="lab" aria-label="backup and factory content">
+      <div class="rail">
+        <h2>4 · backup (before flash)</h2>
+        <p class="hint">
+          <strong>Two backups matter:</strong>
+        </p>
+        <p class="hint">
+          (1) the serial above — write it down.<br />
+          (2) projects + samples over WebMIDI FILE (kotu protocol), in this page — no Python.
+        </p>
+        <p class="hint">
+          Run this before risky flashes or a SHIFT+ERASE format.
+        </p>
+        <div class="actions">
+          <button type="button" class="go" id="backup-btn" disabled>backup device to .pak</button>
+        </div>
+        <div class="progress" id="backup-progress" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="backup progress">
+          <div class="progress-bar" id="backup-progress-bar"></div>
+          <span id="backup-progress-label"></span>
+        </div>
+        <p class="hint dim" id="backup-hint">Connect a device to enable backup.</p>
+        <p class="warn" id="backup-warn" hidden></p>
+        <p class="status" id="backup-status" aria-live="polite"></p>
+      </div>
+
+      <div class="rail wide">
+        <h2>5 · factory projects</h2>
+        <p class="hint">
+          Demos live in TE Sample Tool <code>.pak</code> archives — not inside the <code>.tfw</code>.
+          The links below go to TE; you download, then drop the file here.
+        </p>
+        <p class="hint">
+          OS&nbsp;2.5+ keeps each sample’s rate (no upsample to 46875), so on-device size ≈ pack WAV
+          (~52&nbsp;MB for all nine EP-40 factory projects — usually fits 64&nbsp;MiB NOR).
+        </p>
+        <p class="hint">
+          Thin keeps pad-referenced samples; restore uploads samples then projects over WebMIDI.
+          Restore is blocked if the selection won’t fit.
+        </p>
+        <ul class="fw-links" id="factory-links"></ul>
+        <p class="hint dim" id="factory-note"></p>
+        <div class="drop" id="pak-drop" tabindex="0" role="button" aria-label="Drop or choose a .pak file">
+          <input type="file" id="pak-file" accept=".pak,.ppak,application/zip" hidden />
+          <p class="drop-title" id="pak-drop-title">drop a factory .pak</p>
+          <p class="drop-sub">or click to choose — slice stays in the browser</p>
+        </div>
+        <div id="pak-panel" hidden>
+          <p class="hint" id="pak-meta">—</p>
+          <div class="proj-list" id="proj-list"></div>
+          <p class="hint" id="pak-plan">select projects to see sample/MB estimate</p>
+          <div class="actions">
+            <button type="button" class="ghost-btn" id="pak-all">select all</button>
+            <button type="button" class="ghost-btn" id="pak-none">select none</button>
+            <button type="button" class="go" id="pak-restore" disabled>restore selection to device</button>
+          </div>
+          <p class="hint dim">
+            <button type="button" class="linkish" id="pak-download" disabled>export thinned .pak</button>
+            — only if you need a file for later; restore does not require it.
+          </p>
+          <div class="progress" id="pak-progress" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="restore progress">
+            <div class="progress-bar" id="pak-progress-bar"></div>
+            <span id="pak-progress-label"></span>
+          </div>
+          <p class="warn" id="pak-warn" hidden></p>
+          <p class="status" id="pak-status" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>
+        Unsupported / at your own risk. Not affiliated with teenage engineering.
+      </p>
+      <p>
+        Story + responsible disclosure timeline:
+        <a href="https://linecross.ing/ko-ii-boots-as-a-riddim/">Four bytes and a product line</a>.
+      </p>
+      <p>
+        Firmwares: TE’s
+        <a href="https://teenage.engineering/_software/releases.json" target="_blank" rel="noreferrer">releases.json</a>
+        (live via <code>node web/serve.mjs</code>).
+        EP-133 / EP-40 by default; Medieval opt-in only.
+      </p>
+    </footer>
+  </div>
+
+  <!-- One dialog instead of the old 2-4 stacked window.confirm() calls. Chrome
+       offers "prevent this page from creating additional dialogs" on repeats,
+       and ticking it to skip the Supertone nag also suppressed the final
+       flash confirmation. -->
+  <dialog id="flash-dialog" class="confirm-dialog" aria-labelledby="flash-dialog-title">
+    <form method="dialog">
+      <h2 id="flash-dialog-title">confirm flash</h2>
+      <dl class="confirm-facts" id="flash-dialog-facts"></dl>
+      <ul class="confirm-warnings" id="flash-dialog-warnings"></ul>
+      <label class="risk" id="flash-dialog-strip-row" hidden>
+        <input type="checkbox" id="flash-dialog-strip" checked />
+        <span>Strip Supertone pads (and Riddim loop / live) from those projects first.</span>
+      </label>
+      <label class="risk" id="flash-dialog-backup-row" hidden>
+        <input type="checkbox" id="flash-dialog-backup" />
+        <span>I know there is no backup from this session and want to flash anyway.</span>
+      </label>
+      <p class="confirm-te">
+        Teenage Engineering (EP-series): cross-flashing is unsupported, field NOR types and
+        densities differ, and the risks include incompatibility, data loss, brick, and voided
+        warranty.
+      </p>
+      <div class="actions">
+        <button type="submit" value="cancel" class="ghost-btn" id="flash-dialog-cancel">cancel</button>
+        <button type="submit" value="flash" class="go" id="flash-dialog-go">flash</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="confirm-dialog" aria-labelledby="confirm-dialog-title">
+    <form method="dialog">
+      <h2 id="confirm-dialog-title">confirm</h2>
+      <p class="hint" id="confirm-dialog-body"></p>
+      <div class="actions">
+        <button type="submit" value="cancel" class="ghost-btn">cancel</button>
+        <button type="submit" value="ok" class="go" id="confirm-dialog-go">continue</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="busy-overlay" class="busy-overlay" hidden role="alertdialog" aria-modal="true" aria-labelledby="busy-title" aria-describedby="busy-detail">
+    <div class="busy-card" tabindex="-1">
+      <h2 id="busy-title">Working…</h2>
+      <p id="busy-detail" class="hint" aria-live="polite"></p>
+      <div class="busy-bar-wrap" id="busy-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="transfer progress">
+        <div class="busy-bar-track">
+          <div class="busy-bar" id="busy-bar"></div>
+        </div>
+        <p id="busy-pct" class="hint dim"></p>
+      </div>
+      <ol id="busy-steps" class="busy-steps" hidden></ol>
+      <div class="actions">
+        <button type="button" class="ghost-btn" id="busy-cancel" hidden>cancel</button>
+        <button type="button" class="go" id="busy-dismiss" hidden>dismiss</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

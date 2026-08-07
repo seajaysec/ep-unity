@@ -1,0 +1,74 @@
+{
+  "devices": [
+    {
+      "sku": "TE028AS001",
+      "version": "1.3.3",
+      "fw_url": "https://teenage.engineering/_software/tx-6/tx-6_firmware_1_3_3.tfw",
+      "link": "https://teenage.engineering/downloads/tx-6",
+      "release_notes": "- usb audio stability"
+    },
+    {
+      "sku": "TE002AS002",
+      "version": "1.7.3",
+      "fw_url": "https://teenage.engineering/_software/op-1/field/op1_field_firmware_1_7_3.tfw",
+      "link": "https://teenage.engineering/downloads/op-1/field",
+      "release_notes": "- fix rare freeze during normal operation\n- fix rare spontaneous factory reset\n- fix rare crash when lifting/dropping presets\n- fix name editor displaying long preset names incorrectly\n- fix fazer graphics drawing outside the screen\n- fix custom icon still visible while sampling is active\n- fix broken focused synth sample position editing\n- fix user presets losing samples when moved from non-snapshot folders\n- make sustain pedal work for locally played notes as well\n- fix windows MTP bug when file could be corrupt when copying from device\n- fix weird tape jump when hammering SPLIT and FWD/REV"
+    },
+    {
+      "sku": "TE029AS001",
+      "version": "1.0.6",
+      "fw_url": "https://teenage.engineering/_software/cm-15/cm-15_firmware_1_0_6.tfw",
+      "link": "https://teenage.engineering/downloads/cm-15",
+      "release_notes": "- add support for CM-15 black"
+    },
+    {
+      "sku": "TE025AS001",
+      "version": "1.1.11",
+      "fw_url": "https://teenage.engineering/_software/tp-7/tp-7_firmware_1_1_11.tfw",
+      "link": "https://teenage.engineering/downloads/tp-7",
+      "release_notes": "- support TE usb audio driver for windows"
+    },
+    {
+      "sku": "TE032AS001",
+      "version": "2.5.1",
+      "fw_url": "https://teenage.engineering/_software/ep-133/ep-133_firmware_2_5_1.tfw",
+      "link": "https://teenage.engineering/downloads/ep-133",
+      "release_notes": "- fix: crash when cropping long samples.\n- fix: GROUP+PAD shortcut broken in TEMPO.\n- fix: choppy USB audio when streaming from Android devices (e.g. Pixel 9)."
+    },
+    {
+      "sku": "TE032AS005",
+      "version": "1.5.0",
+      "fw_url": "https://teenage.engineering/_software/ep-1320/ep-1320_firmware_1_5_0.tfw",
+      "link": "https://teenage.engineering/downloads/ep-1320",
+      "release_notes": "- summer 2026 update"
+    },
+    {
+      "sku": "TE032AS006",
+      "version": "2.5.1",
+      "fw_url": "https://teenage.engineering/_software/ep-40/ep-40_firmware_2_5_1.tfw",
+      "link": "https://teenage.engineering/downloads/ep-40",
+      "release_notes": "- fix: note-on velocity did not work for samples.\n- fix: crash when cropping long samples.\n- fix: GROUP+PAD shortcut broken in TEMPO.\n- fix: choppy USB audio when streaming from Android devices (e.g. Pixel 9)."
+    },
+    {
+      "sku": "TE033AS001",
+      "version": "1.1.21",
+      "fw_url": "https://teenage.engineering/_software/op-xy/opxy_firmware_1_1_21.tfw",
+      "link": "https://teenage.engineering/downloads/op-xy",
+      "release_notes": "- faster loading of user content\n- rotate components and parameter locks along with triggers\n- stop held arpeggio notes upon pattern switch\n- simplified global transpose\n- fix: semi-unresponsive state after startup\n- fix: preset not loading after being pasted\n- fix: switching to an unassigned key would exit subfolder\n- fix: unable to play notes on disabled maestro screen"
+    },
+    {
+      "sku": "TE011AS",
+      "version": "1.6.10",
+      "fw_url": "https://teenage.engineering/_software/spider/spider_firmware_1_6_10.bin",
+      "link": "https://teenage.engineering/products/orthoplay",
+      "release_notes": "- indicate if speech eq is active when starting up\n- bluetooth bug fixes"
+    },
+    {
+      "sku": "TE032AS101",
+      "version": "1.0.3",
+      "fw_url": "https://teenage.engineering/_software/ep-136/ep-136_firmware_1_0_3.tfw",
+      "link": "https://teenage.engineering/downloads/ep-136",
+      "release_notes": "- option for usb midi clock out\n- close fx screen with fx button\n- bug fixes and performance improvements"
+    }
+  ]
+}

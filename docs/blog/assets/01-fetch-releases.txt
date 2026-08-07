@@ -1,0 +1,1 @@
+async fetchLatestFirmwareVersion(){try{const r=(await fetch("/_software/releases.json").then(s=>s.json()).then(s=>s).catch(s=>s)).devices;this.setState({fw_info:r})}catch(t){console.error(t)}this.state.booted||this.boot()}

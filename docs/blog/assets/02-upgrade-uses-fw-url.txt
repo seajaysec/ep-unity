@@ -1,0 +1,1 @@
+async upgradeDevice(t=!1){const r=t?this.state.dropFW.version:this.props.fw.version;this.setState({currentUpdateFw:r});{this.props.setUpgrading(!0),this.setState({updateState:"pending",dropFW:null,flipped:!1,settings:[],supportsSettings:null});const s=t||this.props.fw.fw_url;this.updateTracking(this.props);const o=new Timer().start();try{Tracking$1.updateDefaultPayload("os_vers

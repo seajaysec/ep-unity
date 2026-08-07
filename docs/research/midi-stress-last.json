@@ -1,0 +1,103 @@
+{
+  "started": "2026-07-21 19:09:19",
+  "port_hint": "EP-40",
+  "midi_in": "EP-40",
+  "midi_out": "EP-40",
+  "identity_before": "7e 3c 06 02 00 20 76 20 00 06 00 00 00 00 00",
+  "identity_after": "7e 3c 06 02 00 20 76 20 00 06 00 00 00 00 00",
+  "crashed_or_deaf": false,
+  "scenarios": [
+    {
+      "id": "S01",
+      "title": "Identity request burst",
+      "status": "PASS",
+      "detail": "40 identity requests, 0 timeouts",
+      "elapsed_s": 0.25151762494351715,
+      "notes": []
+    },
+    {
+      "id": "S02",
+      "title": "All pads once (A\u2013D)",
+      "status": "PASS",
+      "detail": "48 pads note on/off",
+      "elapsed_s": 1.6378228329122066,
+      "notes": []
+    },
+    {
+      "id": "S03",
+      "title": "Rapid pad hammer",
+      "status": "PASS",
+      "detail": "80 cycles \u00d7 6 pads rapid on/off",
+      "elapsed_s": 1.8710325830616057,
+      "notes": []
+    },
+    {
+      "id": "S04",
+      "title": "Velocity sweep",
+      "status": "PASS",
+      "detail": "note 60 velocity 1..127",
+      "elapsed_s": 1.569625832955353,
+      "notes": []
+    },
+    {
+      "id": "S05",
+      "title": "CC knobs + sustain",
+      "status": "PASS",
+      "detail": "CC1/12/13 sweeps + CC64 sustain",
+      "elapsed_s": 0.8571141249267384,
+      "notes": []
+    },
+    {
+      "id": "S06",
+      "title": "Bank select + program change",
+      "status": "PASS",
+      "detail": "bank+PC for several sound indices + trigger",
+      "elapsed_s": 0.6969120000721887,
+      "notes": [
+        "Bank/PC\u2192sound selection is unconfirmed on some 2.5.x builds; PASS means survived, not that PC remapped sounds."
+      ]
+    },
+    {
+      "id": "S07",
+      "title": "MIDI clock + start/continue/stop",
+      "status": "PASS",
+      "detail": "clock 120.0 BPM \u00d7 8 bars + continue + stop",
+      "elapsed_s": 17.58692562498618,
+      "notes": []
+    },
+    {
+      "id": "S08",
+      "title": "Fast MIDI clock (180 BPM)",
+      "status": "PASS",
+      "detail": "clock 180 BPM \u00d7 4 bars",
+      "elapsed_s": 5.628677875036374,
+      "notes": []
+    },
+    {
+      "id": "S09",
+      "title": "Polyphonic hold blast",
+      "status": "PASS",
+      "detail": "held 24 notes then release",
+      "elapsed_s": 1.2504362920299172,
+      "notes": []
+    },
+    {
+      "id": "S10",
+      "title": "Supertone-style sustained + mod",
+      "status": "PASS",
+      "detail": "6 rounds sustained notes + CC1",
+      "elapsed_s": 9.268758042016998,
+      "notes": [
+        "Does not assert audio=Supertone; stresses sustained notes+mod the way a synth pad session would."
+      ]
+    },
+    {
+      "id": "S11",
+      "title": "Idle health check",
+      "status": "PASS",
+      "detail": "1.5s idle + health",
+      "elapsed_s": 1.5076977499993518,
+      "notes": []
+    }
+  ]
+}
