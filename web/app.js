@@ -366,6 +366,16 @@ function saveProfile(serial, patch) {
 }
 
 function deviceSku() {
+  // `sku` is the hardware revision; `base_sku` is the firmware lineage it runs.
+  // TE032AS002 (128 MiB EP-133) reports base_sku TE032AS001, and AS001 is the
+  // only k.o. II image TE publishes. DFU_BEGIN must announce the lineage --
+  // announcing the revision fails with status=0x1 at BEGIN, stock images too.
+  const m = state.session?.device?.metadata
+  return m?.base_sku || m?.sku || state.deviceSnapshot?.baseSku || state.deviceSnapshot?.sku || ''
+}
+
+/** Hardware revision, for display only. Never put this on the wire. */
+function deviceHardwareSku() {
   return state.session?.device?.metadata?.sku || state.deviceSnapshot?.sku || ''
 }
 
@@ -378,6 +388,7 @@ function snapshotFromDevice(d) {
   return {
     serial: m.serial || '',
     sku: m.sku || '',
+    baseSku: m.base_sku || '',
     product: m.product || '',
     mode: m.mode || '',
     os: m.os_version || '',
@@ -1878,9 +1889,16 @@ function refreshPakPlan() {
   } else {
     fitNote = ' · connect device to restore (or click restore and you’ll be prompted)'
   }
-  const norWarn =
-    space.needed > 50 * 1024 * 1024
-      ? ' — caution: may be tight on 64 MiB NOR'
+  // Was a flat 50 MB test, which fires regardless of the part actually fitted.
+  // The device reports max_capacity via /sounds metadata (62,853,120 on a
+  // 64 MiB unit; ~127.8 M on a 128 MiB TE032AS002), so prefer that.
+  const maxCap = state.storage?.maxCapacity || 0
+  const norWarn = maxCap
+    ? space.needed > maxCap * 0.8
+      ? ' — caution: uses most of the capacity on this unit'
+      : ''
+    : space.needed > 50 * 1024 * 1024
+      ? ' — caution: may be tight on a 64 MiB unit'
       : ''
   const packNote =
     Math.abs(space.needed - plan.wavBytes) > 64 * 1024

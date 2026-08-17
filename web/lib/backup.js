@@ -83,7 +83,9 @@ export function roomCheck(storage, needed, reclaimed) {
     `(${formatBytes(storage.freeSpace)} free` +
     (reclaimed ? ` + ${formatBytes(reclaimed)} from overwrites` : '') +
     ` of ${formatBytes(storage.maxCapacity)}). ` +
-    `Thin further, delete samples on-device, or use a 128 MiB unit.`
+    `Thin further or delete samples on-device.` +
+    // Only suggest bigger hardware to someone not already on it.
+    (storage.maxCapacity < 100 * 1024 * 1024 ? ` A 128 MiB unit would also fit more.` : '')
   )
 }
 
