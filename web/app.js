@@ -968,6 +968,10 @@ function updateRewritePanel() {
 
   const fileSku = state.info?.sku || ''
   const wireSku = deviceSku()
+  const hwSku = deviceHardwareSku()
+  // A 128 MiB board (TE032AS002) runs the AS001 lineage, so its revision differs
+  // from the wire SKU. Name the board so AS001 at DFU_BEGIN isn't a surprise.
+  const wireLabel = hwSku && hwSku !== wireSku ? `${wireSku} · board ${hwSku}` : wireSku
   const from = productLabel(fileSku)
   const to = productLabel(wireSku)
 
@@ -979,10 +983,10 @@ function updateRewritePanel() {
     toSku.textContent = 'needed for DFU_BEGIN SKU'
   } else if (fileSku && fileSku !== wireSku) {
     toProduct.textContent = `updating to flash on ${to.long}`
-    toSku.textContent = wireSku
+    toSku.textContent = wireLabel
   } else {
     toProduct.textContent = `flashing on ${to.long}`
-    toSku.textContent = wireSku
+    toSku.textContent = wireLabel
   }
 
   if (!fileSku && !wireSku) {
@@ -1769,11 +1773,14 @@ async function flash() {
     )
   }
 
+  // Board revision (deviceHardwareSku) is for display only — never the wire SKU.
+  const boardSku = deviceHardwareSku()
   const answer = await askFlashConfirm({
     facts: [
       ['serial', serial],
       ['file', state.fileName || 'firmware'],
       ['image', `${from} ${prepared.info.version}`],
+      ...(boardSku && boardSku !== targetSku ? [['board', `${boardSku} (runs the ${targetSku} lineage)`]] : []),
       [
         'DFU_BEGIN sku',
         prepared.rewritten ? `${targetSku} (header rewritten from ${from})` : `${targetSku} (already matched)`,
