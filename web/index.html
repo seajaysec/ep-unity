@@ -17,7 +17,10 @@
   <div class="page">
     <header class="top">
       <div class="brand">
-        <h1>ep‑unity</h1>
+        <div class="brand-line">
+          <h1>ep‑unity</h1>
+          <span class="version" title="see changelog at the foot of the page">v1.1</span>
+        </div>
         <p class="brand-sub" id="brand-sub">load an image · connect a unit
 see the four-byte rewrite</p>
       </div>
@@ -340,6 +343,41 @@ see the four-byte rewrite</p>
         (live via <code>node web/serve.mjs</code>).
         EP-133 / EP-40 by default; Medieval opt-in only.
       </p>
+
+      <section class="changelog" aria-labelledby="changelog-h">
+        <h2 id="changelog-h">changelog</h2>
+        <dl>
+          <dt>1.1</dt>
+          <dd>
+            <ul>
+              <li>
+                <strong>128 MiB units (TE032AS002) now flash.</strong> They announce
+                <code>base_sku</code> at <code>DFU_BEGIN</code> instead of the board revision,
+                which was rejecting stock TE images too. Found and hardware-tested by
+                <a href="https://github.com/res0urces" target="_blank" rel="noreferrer">Joshua Leak</a>.
+              </li>
+              <li>
+                <strong>One-click result reporting.</strong> Every flash, worked or not, offers a
+                filled-in GitHub issue carrying the device’s own error log. No serial, nothing to attach.
+              </li>
+              <li>
+                <strong>Free-space checks read the unit’s real capacity</strong> instead of assuming a
+                64 MiB part, and the flash confirm now shows it.
+              </li>
+              <li>The board revision is shown beside the wire SKU, so <code>AS001</code> on an
+                <code>AS002</code> board doesn’t read as a bug.</li>
+            </ul>
+          </dd>
+
+          <dt>1.0</dt>
+          <dd>
+            <ul>
+              <li>SKU header rewrite, WebMIDI DFU flashing, and the post-flash diagnosis watcher.</li>
+              <li>Project + sample backup and restore to <code>.pak</code>, and factory-pack thinning.</li>
+            </ul>
+          </dd>
+        </dl>
+      </section>
     </footer>
   </div>
 
