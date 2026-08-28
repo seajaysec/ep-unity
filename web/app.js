@@ -21,6 +21,7 @@ import {
   formatMb,
 } from './lib/pak.js'
 import { findOutput, runDemoLoop, pickDemo } from './lib/demo.js'
+import { pickWireSku, pickBoardSku } from './lib/sku.js'
 import {
   openFileSession,
   backupDevice,
@@ -355,28 +356,40 @@ function saveProfile(serial, patch) {
   const prev = loadProfile(serial) || {
     serial,
     hardwareSku: '',
+    baseSku: '',
+    baseSkuFor: '',
     firstSeenAt: new Date().toISOString(),
   }
   const next = { ...prev, ...patch, serial, updatedAt: new Date().toISOString() }
   // hardware SKU: prefer bootloader GREET, else first-seen SKU, never overwrite with later flash SKU once set
   if (!next.hardwareSku && patch.greetSku) next.hardwareSku = patch.greetSku
   if (patch.mode === 'bootloader' && patch.greetSku) next.hardwareSku = patch.greetSku
+  // Lineage SKU is a property of the board, so it never changes and only DFU
+  // GREET reports it. Keep the known-good value when a FILE session omits it.
+  if (!patch.baseSku) {
+    next.baseSku = prev.baseSku || ''
+    next.baseSkuFor = prev.baseSkuFor || ''
+  }
   localStorage.setItem(PROFILE_PREFIX + serial, JSON.stringify(next))
   return next
 }
 
-function deviceSku() {
-  // `sku` is the hardware revision; `base_sku` is the firmware lineage it runs.
-  // TE032AS002 (128 MiB EP-133) reports base_sku TE032AS001, and AS001 is the
-  // only k.o. II image TE publishes. DFU_BEGIN must announce the lineage --
-  // announcing the revision fails with status=0x1 at BEGIN, stock images too.
-  const m = state.session?.device?.metadata
-  return m?.base_sku || m?.sku || state.deviceSnapshot?.baseSku || state.deviceSnapshot?.sku || ''
+/** Sources the SKU choice draws on. See lib/sku.js for why there are three. */
+function skuSources() {
+  const snapshot = state.deviceSnapshot
+  const metadata = state.session?.device?.metadata
+  const serial = metadata?.serial || snapshot?.serial || ''
+  return { metadata, snapshot, profile: loadProfile(serial) }
 }
 
-/** Hardware revision, for display only. Never put this on the wire. */
+/** SKU announced at DFU_BEGIN — the firmware lineage, never the board revision. */
+function deviceSku() {
+  return pickWireSku(skuSources())
+}
+
+/** Board revision, for display only. Never put this on the wire. */
 function deviceHardwareSku() {
-  return state.session?.device?.metadata?.sku || state.deviceSnapshot?.sku || ''
+  return pickBoardSku(skuSources())
 }
 
 function isDeviceKnown() {
@@ -501,6 +514,8 @@ function mergeFileInfoIntoSnapshot(info, identityCode) {
   state.deviceSnapshot = {
     serial: info.serial || prev?.serial || '',
     sku: info.sku || prev?.sku || '',
+    // FILE info has no base_sku (see deviceSku) — carry the DFU-side one forward.
+    baseSku: prev?.baseSku || '',
     product: info.product || prev?.product || '',
     mode: prev?.mode || 'normal',
     os: info.osVersion || prev?.os || '',
@@ -511,6 +526,8 @@ function mergeFileInfoIntoSnapshot(info, identityCode) {
   if (state.deviceSnapshot.serial) {
     saveProfile(state.deviceSnapshot.serial, {
       greetSku: state.deviceSnapshot.sku,
+      baseSku: state.deviceSnapshot.baseSku,
+      baseSkuFor: state.deviceSnapshot.baseSku ? state.deviceSnapshot.sku : '',
       product: state.deviceSnapshot.product,
       mode: state.deviceSnapshot.mode,
       os: state.deviceSnapshot.os,
@@ -1245,6 +1262,8 @@ function showIdentity() {
   const serial = snap.serial || ''
   const profile = saveProfile(serial, {
     greetSku: snap.sku,
+    baseSku: snap.baseSku,
+    baseSkuFor: snap.baseSku ? snap.sku : '',
     product: snap.product,
     mode: snap.mode,
     os: snap.os,
