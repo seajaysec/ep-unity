@@ -99,6 +99,37 @@ Two consequences worth carrying if you build on this:
 Free-space warnings read `max_capacity` from `/sounds` metadata rather than assuming a
 64 MiB part, so a 128 MiB unit is no longer told to go buy a 128 MiB unit.
 
+Hardware note while we're here: **there is no 64 MiB EP-40.** Riddim ships 128 MiB only.
+The EP-133 ships both — `TE032AS001` at 64 MiB, `TE032AS002` at 128 MiB.
+
+## Reporting a result
+
+Outcome reports are the entire evidence base for this, and there are very few. What is on
+record right now:
+
+| Combination | Reports |
+|---|---|
+| EP-40 firmware on EP-133 hardware | 1, on a 64 MiB board |
+| EP-40 firmware on a 128 MiB EP-133 | 0 |
+| EP-133 firmware on EP-40 hardware | 0 |
+| EP-1320 either direction | rejected after transfer — different `KEYHASH` |
+
+**A flash that worked is as useful to report as one that didn't.**
+
+After every flash the tool offers **Save report** — a small JSON file with the SKUs, the board
+revision, the OS, the capacity the unit reported, how it came back, and the device's own error
+SysEx lines. That last part is the reason the file exists: `err sound 44 …` and
+`ERR SYSTEM_MODEL …` are the most useful thing in a failure and the least likely to be retyped
+by hand. Read it before you send it — it is plain JSON, and it carries **no serial, no samples
+and no project data**.
+
+Then send it: [open an issue](https://github.com/seajaysec/ep-unity/issues) and attach the file.
+
+To collect reports without asking people for a GitHub account, set `REPORT_FORM_URL` in
+`web/lib/reports.js` to any form with a file-upload field; the tool then points at that instead.
+Either way the page never sends anything itself — both are links a person clicks, so the
+no-network property is unchanged.
+
 ## Command line
 
 ```bash
