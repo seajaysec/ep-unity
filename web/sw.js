@@ -6,7 +6,7 @@
  * the rest of the tool follows.
  */
 
-const CACHE = 'ep-unity-shell-v5'
+const CACHE = 'ep-unity-shell-v6'
 
 const SHELL = [
   './',

@@ -132,6 +132,24 @@ code, .hex {
   padding-bottom: 1.25rem;
 }
 
+.brand-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+/* Version sits with the wordmark, not above it: it reads as part of the name. */
+.version {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--silk-dim);
+  border: 1px solid var(--trace);
+  border-radius: 2px;
+  padding: 0.1rem 0.35rem;
+  white-space: nowrap;
+}
+
 .brand h1 {
   margin: 0;
   font-size: clamp(2.4rem, 6vw, 3.6rem);
@@ -868,6 +886,48 @@ html[data-device="ep1320"] .warn {
 .foot p { margin: 0 0 0.55rem; }
 .foot p:last-child { margin-bottom: 0; }
 .foot code { color: var(--silk); font-size: 0.9em; }
+
+.changelog {
+  margin-top: 1.5rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--trace);
+}
+.changelog h2 {
+  margin: 0 0 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--silk-dim);
+}
+.changelog dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1.1rem;
+}
+.changelog dt {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--silk);
+  padding-top: 0.05rem;
+}
+.changelog dd { margin: 0 0 0.9rem; }
+.changelog dd:last-of-type { margin-bottom: 0; }
+.changelog ul {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.changelog strong { color: var(--silk); font-weight: 600; }
+
+@media (max-width: 34rem) {
+  .changelog dl { grid-template-columns: 1fr; gap: 0.25rem; }
+  .changelog dd { margin-bottom: 1.1rem; }
+}
 
 .lab {
   margin-top: 2.5rem;
