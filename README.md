@@ -116,19 +116,22 @@ record right now:
 
 **A flash that worked is as useful to report as one that didn't.**
 
-After every flash the tool offers **Save report** — a small JSON file with the SKUs, the board
-revision, the OS, the capacity the unit reported, how it came back, and the device's own error
-SysEx lines. That last part is the reason the file exists: `err sound 44 …` and
-`ERR SYSTEM_MODEL …` are the most useful thing in a failure and the least likely to be retyped
-by hand. Read it before you send it — it is plain JSON, and it carries **no serial, no samples
-and no project data**.
+After every flash the tool offers **Report this result**, which opens a
+[GitHub issue](https://github.com/seajaysec/ep-unity/issues) already filled in — the SKUs, the
+board revision, the OS, the capacity the unit reported, how it came back, and the device's own
+error SysEx lines. Nothing to attach and nothing to retype: `err sound 44 …` and
+`ERR SYSTEM_MODEL …` are the most useful part of a failure and the least likely to survive being
+typed out by hand, so the tool carries them for you.
 
-Then send it: [open an issue](https://github.com/seajaysec/ep-unity/issues) and attach the file.
+It never sends your **serial**, and never any sample or project data. The issue says so, and you
+can read the whole thing before you post it — the summary is at the top and the full report is in
+a collapsed JSON block underneath.
 
-To collect reports without asking people for a GitHub account, set `REPORT_FORM_URL` in
-`web/lib/reports.js` to any form with a file-upload field; the tool then points at that instead.
-Either way the page never sends anything itself — both are links a person clicks, so the
-no-network property is unchanged.
+**Save a copy** writes the same report as a file. Reach for it if you want to keep one, or if the
+unit produced so much debug output that it won't fit in a prefilled URL — the issue will say so
+and ask for the file.
+
+The page still sends nothing on its own; these are links you click.
 
 ## Command line
 

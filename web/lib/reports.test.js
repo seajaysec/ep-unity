@@ -6,7 +6,6 @@ import {
   buildReport,
   reportFileText,
   reportFilename,
-  reportDestination,
   ISSUES_URL,
 } from './reports.js'
 
@@ -101,7 +100,7 @@ describe('reports.js reportIssueUrl', () => {
   it('never carries a serial, and says so', () => {
     const url = reportIssueUrl({ ...opts, serial: 'EP133-1234567' })
     assert.ok(!url.includes('1234567'))
-    assert.match(decodeURIComponent(url), /No serial number is included/)
+    assert.match(decodeURIComponent(url), /No serial number, no samples, no project data/)
   })
 
   it('fills placeholders when the device was never probed', () => {
@@ -170,10 +169,60 @@ describe('reports.js buildReport', () => {
     assert.equal(reportFilename(new Date('2026-08-28T12:00:00Z')), 'ep-unity-report-2026-08-28.json')
   })
 
-  it('defaults to GitHub issues until a form URL is configured', () => {
-    // REPORT_FORM_URL is empty by default; set it and reports go there instead.
-    const dest = reportDestination()
-    assert.ok(dest.href.startsWith('https://'))
-    assert.ok(dest.label.length > 0)
+})
+
+describe('reports.js reportIssueUrl carries the whole report', () => {
+  const base = {
+    outcome: 'did not boot cleanly',
+    imageSku: EP40,
+    imageVersion: '2.5.1',
+    wireSku: EP133,
+    boardSku: EP133_128,
+    os: '2.5.1',
+    maxCapacity: CAP_128,
+    state: 'err sound loop',
+    rewritten: true,
+    debugTexts: ['err sound 44 2_0_5'],
+  }
+
+  it('inlines the device debug lines so nothing needs attaching', () => {
+    const body = decodeURIComponent(reportIssueUrl(base))
+    assert.match(body, /### What the device said/)
+    assert.ok(body.includes('err sound 44 2_0_5'))
+  })
+
+  it('embeds the full report as parseable JSON', () => {
+    const body = decodeURIComponent(reportIssueUrl(base))
+    const json = body.split('```json\n')[1].split('\n```')[0]
+    const parsed = JSON.parse(json)
+    assert.equal(parsed.combination, 'EP-40 firmware on EP-133')
+    assert.deepEqual(parsed.deviceDebug, ['err sound 44 2_0_5'])
+  })
+
+  it('omits the device section when the unit said nothing', () => {
+    const body = decodeURIComponent(reportIssueUrl({ ...base, debugTexts: [] }))
+    assert.doesNotMatch(body, /What the device said/)
+  })
+
+  it('asks for the file instead of truncating a very chatty device', () => {
+    const chatty = Array.from({ length: 400 }, (_, i) => `err sound ${i} 2_5_1 verbose padding line`)
+    const url = reportIssueUrl({ ...base, debugTexts: chatty })
+    const body = decodeURIComponent(url)
+    assert.ok(url.length <= 6000, `url was ${url.length}`)
+    assert.match(body, /too many to prefill/)
+    assert.match(body, /attach the saved report file/)
+  })
+
+  it('stays a real GitHub new-issue URL either way', () => {
+    for (const d of [[], ['one'], Array.from({ length: 400 }, (_, i) => `line ${i} padding padding`)]) {
+      assert.ok(reportIssueUrl({ ...base, debugTexts: d }).startsWith(
+        'https://github.com/seajaysec/ep-unity/issues/new?title=',
+      ))
+    }
+  })
+
+  it('never carries a serial, however chatty the device was', () => {
+    const url = reportIssueUrl({ ...base, serial: 'EP133-1234567' })
+    assert.ok(!url.includes('1234567'))
   })
 })

@@ -298,21 +298,8 @@ export function createBusyOverlay() {
         // Outcome reports are the project's whole evidence base, so ask for one
         // on every result — a flash that worked is as useful as one that didn't.
         if (report) {
-          // Save first, send second: the file is the report, the link is where
-          // it goes. Blob URL is revoked on the next finish() to avoid a leak.
-          if (report.save) {
-            const li = document.createElement('li')
-            const a = document.createElement('a')
-            revokeReportUrl()
-            reportUrl = URL.createObjectURL(
-              new Blob([report.save.text], { type: 'application/json' }),
-            )
-            a.href = reportUrl
-            a.download = report.save.filename
-            a.textContent = report.save.label
-            li.append(a)
-            stepsEl.append(li)
-          }
+          // The issue link is the ask; the file download is the fallback for
+          // keeping a copy. Blob URL is revoked on the next finish() and hide().
           const li = document.createElement('li')
           const a = document.createElement('a')
           a.href = report.href
@@ -321,6 +308,19 @@ export function createBusyOverlay() {
           a.rel = 'noopener noreferrer'
           li.append(a)
           stepsEl.append(li)
+          if (report.save) {
+            const saveLi = document.createElement('li')
+            const saveA = document.createElement('a')
+            revokeReportUrl()
+            reportUrl = URL.createObjectURL(
+              new Blob([report.save.text], { type: 'application/json' }),
+            )
+            saveA.href = reportUrl
+            saveA.download = report.save.filename
+            saveA.textContent = report.save.label
+            saveLi.append(saveA)
+            stepsEl.append(saveLi)
+          }
         }
       } else {
         stepsEl.hidden = true

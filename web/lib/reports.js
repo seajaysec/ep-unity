@@ -19,23 +19,6 @@ import { SKU_EP133, SKU_EP40, SKU_MEDIEVAL } from './catalog.js'
 export const ISSUES_URL = 'https://github.com/seajaysec/ep-unity/issues'
 const NEW_ISSUE_URL = 'https://github.com/seajaysec/ep-unity/issues/new'
 
-/**
- * Where a saved report gets uploaded. Set this to a form that accepts a file
- * (Tally, Google Forms, anything with a public upload field) and the tool will
- * point people at it instead of GitHub — no account needed to send a report.
- *
- * Leave empty and reports fall back to a GitHub issue with the file attached.
- * Nothing here is ever contacted by the page: both are links a person clicks.
- */
-export const REPORT_FORM_URL = ''
-
-/** Where to send a saved report, and what to call that destination. */
-export function reportDestination() {
-  return REPORT_FORM_URL
-    ? { href: REPORT_FORM_URL, label: 'Upload the report (no account needed)' }
-    : { href: ISSUES_URL, label: 'Attach the report to a GitHub issue' }
-}
-
 /** Rough MB, for report text only. */
 function mb(bytes) {
   return bytes ? `${(bytes / (1024 * 1024)).toFixed(2)} MB` : ''
@@ -88,42 +71,80 @@ export function crossFlashReportNote({ imageSku, wireSku, boardSku, maxCapacity 
  * @param {{outcome?: string, imageSku?: string, wireSku?: string, boardSku?: string,
  *          os?: string, maxCapacity?: number, state?: string}} opts
  */
-export function reportIssueUrl({
-  outcome = '',
-  imageSku = '',
-  wireSku = '',
-  boardSku = '',
-  os = '',
-  maxCapacity = 0,
-  state = '',
-} = {}) {
-  const from = family(imageSku)
-  const to = family(wireSku)
-  const combo = from && to ? (from === to ? `${from} reflash` : `${from} firmware on ${to}`) : 'flash'
-  const title = `[report] ${combo}${outcome ? ` — ${outcome}` : ''}`
+/**
+ * Browsers and servers both tolerate far more, but a prefilled issue that
+ * silently truncates is worse than one that asks for an attachment, so keep
+ * the whole URL well inside where anything starts to get opinionated.
+ */
+const MAX_PREFILL_URL = 6000
 
-  const rows = [
-    ['outcome', outcome || '(worked / failed / describe)'],
-    ['image sku', imageSku || '(unknown)'],
-    ['announced at DFU_BEGIN', wireSku || '(unknown)'],
-    ['board revision', boardSku || '(same as above)'],
-    ['device os', os || '(unknown)'],
-    ['sample store', mb(maxCapacity) || '(not probed)'],
-    ['post-flash state', state || '(what the screen said)'],
-  ]
+/**
+ * A prefilled issue carrying the entire report, so reporting is one click and
+ * there is nothing to attach. If a device spat out enough debug lines to
+ * outgrow the URL, the body asks for the saved file instead of quietly
+ * dropping the interesting half.
+ *
+ * Never carries the serial — that is the field check_publishable.sh exists to
+ * keep out of this repository.
+ *
+ * @param {Parameters<typeof buildReport>[0]} opts
+ */
+export function reportIssueUrl(opts = {}) {
+  const report = buildReport(opts)
+  const title = `[report] ${report.combination}${opts.outcome ? ` — ${opts.outcome}` : ''}`
 
-  const body = [
-    ...rows.map(([k, v]) => `- **${k}:** ${v}`),
+  const summary = [
+    `- **outcome:** ${report.outcome}`,
+    `- **combination:** ${report.combination}`,
+    `- **image:** ${report.image.sku || '(unknown)'}${report.image.version ? ` ${report.image.version}` : ''}` +
+      `${report.image.headerRewritten ? ' (header rewritten)' : ''}`,
+    `- **announced at DFU_BEGIN:** ${report.device.announcedAtDfuBegin || '(unknown)'}`,
+    `- **board revision:** ${report.device.boardRevision || '(unknown)'}`,
+    `- **device os:** ${report.device.os || '(unknown)'}`,
+    `- **sample store:** ${report.device.sampleStore || '(not probed)'}`,
+    `- **post-flash state:** ${report.postFlashState || '(what the screen said)'}`,
+  ].join('\n')
+
+  const debug = report.deviceDebug.length
+    ? ['', '### What the device said', '', '```', ...report.deviceDebug, '```'].join('\n')
+    : ''
+
+  const full = [
+    summary,
+    debug,
     '',
     '### What happened',
     '',
     '',
-    '---',
-    '_No serial number is included above. Please leave it out — it is not needed._',
+    '<details><summary>Full report</summary>',
+    '',
+    '```json',
+    JSON.stringify(report, null, 2),
+    '```',
+    '',
+    '</details>',
+    '',
+    `_${report.contains}_`,
   ].join('\n')
 
-  return `${NEW_ISSUE_URL}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`
+  const url = (body) => `${NEW_ISSUE_URL}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`
+  const withReport = url(full)
+  if (withReport.length <= MAX_PREFILL_URL) return withReport
+
+  // Too much debug output to inline. Ask for the file rather than truncate it.
+  return url(
+    [
+      summary,
+      '',
+      '### What happened',
+      '',
+      '',
+      `_This device produced ${report.deviceDebug.length} debug lines — too many to prefill._`,
+      '_Please attach the saved report file, which has all of them._',
+    ].join('\n'),
+  )
 }
+
 
 /** Filename for a saved report. Dated, so a person can send more than one. */
 export function reportFilename(now = new Date()) {
