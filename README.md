@@ -114,10 +114,21 @@ record right now:
 | EP-133 firmware on EP-40 hardware | 0 |
 | EP-1320 either direction | rejected after transfer — different `KEYHASH` |
 
-**A flash that worked is as useful to report as one that didn't.** If you run any of these,
-please [open an issue](https://github.com/seajaysec/ep-unity/issues). The tool offers a
-prefilled link after every flash; it carries the SKUs, OS and reported capacity, and
-deliberately leaves out your serial.
+**A flash that worked is as useful to report as one that didn't.**
+
+After every flash the tool offers **Save report** — a small JSON file with the SKUs, the board
+revision, the OS, the capacity the unit reported, how it came back, and the device's own error
+SysEx lines. That last part is the reason the file exists: `err sound 44 …` and
+`ERR SYSTEM_MODEL …` are the most useful thing in a failure and the least likely to be retyped
+by hand. Read it before you send it — it is plain JSON, and it carries **no serial, no samples
+and no project data**.
+
+Then send it: [open an issue](https://github.com/seajaysec/ep-unity/issues) and attach the file.
+
+To collect reports without asking people for a GitHub account, set `REPORT_FORM_URL` in
+`web/lib/reports.js` to any form with a file-upload field; the tool then points at that instead.
+Either way the page never sends anything itself — both are links a person clicks, so the
+no-network property is unchanged.
 
 ## Command line
 

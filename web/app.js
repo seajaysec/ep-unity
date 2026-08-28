@@ -22,7 +22,14 @@ import {
 } from './lib/pak.js'
 import { findOutput, runDemoLoop, pickDemo } from './lib/demo.js'
 import { pickWireSku, pickBoardSku } from './lib/sku.js'
-import { crossFlashReportNote, reportIssueUrl, ISSUES_URL } from './lib/reports.js'
+import {
+  crossFlashReportNote,
+  reportIssueUrl,
+  reportFileText,
+  reportFilename,
+  reportDestination,
+  ISSUES_URL,
+} from './lib/reports.js'
 import {
   openFileSession,
   backupDevice,
@@ -60,7 +67,10 @@ const state = {
   /**
    * What the last flash attempted, kept so the post-flash result can offer a
    * prefilled report link after the DFU session is gone.
-   * @type {null | { imageSku: string, wireSku: string, boardSku: string, maxCapacity: number }}
+   * @type {null | {
+   *   imageSku: string, imageVersion: string, wireSku: string, boardSku: string,
+   *   maxCapacity: number, rewritten: boolean,
+   * }}
    */
   lastFlash: null,
   fileName: '',
@@ -1148,16 +1158,26 @@ function bumpBusyProgress(done, total, label) {
 function withReportLink(diagnosis) {
   const last = state.lastFlash
   if (!last) return diagnosis
+  const facts = {
+    ...last,
+    outcome: diagnosis.kind === 'ok' ? 'worked' : 'did not boot cleanly',
+    os: state.session?.device?.metadata?.os_version || state.deviceSnapshot?.os || '',
+    state: diagnosis.title || '',
+    debugTexts: diagnosis.debugTexts || [],
+  }
+  const dest = reportDestination()
   return {
     ...diagnosis,
     report: {
-      label: 'Report this result on GitHub (opens a prefilled issue — no serial)',
-      href: reportIssueUrl({
-        ...last,
-        outcome: diagnosis.kind === 'ok' ? 'worked' : 'did not boot cleanly',
-        os: state.session?.device?.metadata?.os_version || state.deviceSnapshot?.os || '',
-        state: diagnosis.title || '',
-      }),
+      // The file is the report; the link is only where it goes. Save first so
+      // the device's debug lines are captured before the overlay is dismissed.
+      save: {
+        label: `Save report (${reportFilename()}) — no serial, no sample data`,
+        filename: reportFilename(),
+        text: reportFileText(facts),
+      },
+      label: `${dest.label} →`,
+      href: dest.href === ISSUES_URL ? reportIssueUrl(facts) : dest.href,
     },
   }
 }
@@ -1865,7 +1885,14 @@ async function flash() {
 
   const medievalImage = isMedievalSku(from) || isMedievalSku(targetSku)
   // Outlives the DFU session: watchFlashReturn needs it to build a report link.
-  state.lastFlash = { imageSku: from, wireSku: targetSku, boardSku, maxCapacity }
+  state.lastFlash = {
+    imageSku: from,
+    imageVersion: prepared.info.version || '',
+    wireSku: targetSku,
+    boardSku,
+    maxCapacity,
+    rewritten: !!prepared.rewritten,
+  }
   state.busy = true
   updateActions()
   flashEta.reset()

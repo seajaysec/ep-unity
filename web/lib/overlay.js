@@ -15,7 +15,12 @@
  *   title: string,
  *   detail: string,
  *   steps?: string[],
- *   report?: { label: string, href: string },
+ *   debugTexts?: string[],
+ *   report?: {
+ *     label: string,
+ *     href: string,
+ *     save?: { label: string, filename: string, text: string },
+ *   },
  * }} DeviceDiagnosis
  */
 
@@ -35,6 +40,12 @@ export function sleep(ms) {
  * @param {boolean} [opts.timedOut]
  */
 export function diagnoseDeviceState(opts = {}) {
+  // The device's own error SysEx is the most useful part of a failure report,
+  // and it used to be consumed by the diagnosis and then dropped. Carry it out.
+  return { ...describeDeviceState(opts), debugTexts: [...(opts.debugTexts || [])] }
+}
+
+function describeDeviceState(opts = {}) {
   const debugTexts = opts.debugTexts || []
   const errLine = debugTexts.find((t) => /err\s+sound/i.test(t))
   if (errLine) {
@@ -259,6 +270,13 @@ export function createBusyOverlay() {
   }
 
   /** @param {DeviceDiagnosis} diagnosis */
+  /** @type {string} */
+  let reportUrl = ''
+  function revokeReportUrl() {
+    if (reportUrl) URL.revokeObjectURL(reportUrl)
+    reportUrl = ''
+  }
+
   function finish(diagnosis) {
     if (!root) return
     blocking = diagnosis.kind === 'waiting'
@@ -280,6 +298,21 @@ export function createBusyOverlay() {
         // Outcome reports are the project's whole evidence base, so ask for one
         // on every result — a flash that worked is as useful as one that didn't.
         if (report) {
+          // Save first, send second: the file is the report, the link is where
+          // it goes. Blob URL is revoked on the next finish() to avoid a leak.
+          if (report.save) {
+            const li = document.createElement('li')
+            const a = document.createElement('a')
+            revokeReportUrl()
+            reportUrl = URL.createObjectURL(
+              new Blob([report.save.text], { type: 'application/json' }),
+            )
+            a.href = reportUrl
+            a.download = report.save.filename
+            a.textContent = report.save.label
+            li.append(a)
+            stepsEl.append(li)
+          }
           const li = document.createElement('li')
           const a = document.createElement('a')
           a.href = report.href
@@ -424,6 +457,7 @@ export function createBusyOverlay() {
     blocking = false
     root.hidden = true
     lockBackground(false)
+    revokeReportUrl()
     if (stepsEl) {
       stepsEl.hidden = true
       stepsEl.replaceChildren()

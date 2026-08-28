@@ -1,6 +1,14 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { crossFlashReportNote, reportIssueUrl, ISSUES_URL } from './reports.js'
+import {
+  crossFlashReportNote,
+  reportIssueUrl,
+  buildReport,
+  reportFileText,
+  reportFilename,
+  reportDestination,
+  ISSUES_URL,
+} from './reports.js'
 
 const EP133 = 'TE032AS001'
 const EP133_128 = 'TE032AS002'
@@ -100,5 +108,72 @@ describe('reports.js reportIssueUrl', () => {
     const url = decodeURIComponent(reportIssueUrl({}))
     assert.match(url, /\(unknown\)/)
     assert.match(url, /\(not probed\)/)
+  })
+})
+
+describe('reports.js buildReport', () => {
+  const opts = {
+    outcome: 'worked',
+    imageSku: EP40,
+    imageVersion: '2.5.1',
+    wireSku: EP133,
+    boardSku: EP133_128,
+    os: '2.5.1',
+    maxCapacity: CAP_128,
+    state: 'rebooted to mode:normal',
+    rewritten: true,
+    debugTexts: ['err sound 44 2_0_5', 'ERR SYSTEM_MODEL 58 2_5_1'],
+    now: new Date('2026-08-28T12:00:00Z'),
+  }
+
+  it('names the combination in a form a human can read', () => {
+    assert.equal(buildReport(opts).combination, 'EP-40 firmware on EP-133')
+    assert.equal(buildReport({ ...opts, imageSku: EP133 }).combination, 'EP-133 reflash')
+  })
+
+  it('keeps the device debug lines — the part too long to retype', () => {
+    assert.deepEqual(buildReport(opts).deviceDebug, opts.debugTexts)
+  })
+
+  it('does not alias the caller’s debug array', () => {
+    const src = ['a']
+    const report = buildReport({ ...opts, debugTexts: src })
+    src.push('b')
+    assert.deepEqual(report.deviceDebug, ['a'])
+  })
+
+  it('records both raw and human capacity, and the board revision', () => {
+    const d = buildReport(opts).device
+    assert.equal(d.sampleStoreBytes, CAP_128)
+    assert.equal(d.sampleStore, '127.81 MB')
+    assert.equal(d.boardRevision, EP133_128)
+    assert.equal(d.announcedAtDfuBegin, EP133)
+  })
+
+  it('falls back to the wire SKU when no separate board revision is known', () => {
+    assert.equal(buildReport({ ...opts, boardSku: '' }).device.boardRevision, EP133)
+  })
+
+  it('carries no serial and says what it contains', () => {
+    const text = reportFileText({ ...opts, serial: 'EP133-1234567' })
+    assert.ok(!text.includes('1234567'))
+    assert.match(text, /No serial number, no samples, no project data/)
+  })
+
+  it('writes parseable JSON ending in a newline', () => {
+    const text = reportFileText(opts)
+    assert.ok(text.endsWith('\n'))
+    assert.equal(JSON.parse(text).outcome, 'worked')
+  })
+
+  it('names the file by date so several can be sent', () => {
+    assert.equal(reportFilename(new Date('2026-08-28T12:00:00Z')), 'ep-unity-report-2026-08-28.json')
+  })
+
+  it('defaults to GitHub issues until a form URL is configured', () => {
+    // REPORT_FORM_URL is empty by default; set it and reports go there instead.
+    const dest = reportDestination()
+    assert.ok(dest.href.startsWith('https://'))
+    assert.ok(dest.label.length > 0)
   })
 })
