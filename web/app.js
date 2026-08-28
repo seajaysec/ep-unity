@@ -22,6 +22,7 @@ import {
 } from './lib/pak.js'
 import { findOutput, runDemoLoop, pickDemo } from './lib/demo.js'
 import { pickWireSku, pickBoardSku } from './lib/sku.js'
+import { crossFlashReportNote, reportIssueUrl, ISSUES_URL } from './lib/reports.js'
 import {
   openFileSession,
   backupDevice,
@@ -56,6 +57,12 @@ const state = {
   deviceSnapshot: null,
   /** @type {null | { maxCapacity: number, freeSpace: number }} */
   storage: null,
+  /**
+   * What the last flash attempted, kept so the post-flash result can offer a
+   * prefilled report link after the DFU session is gone.
+   * @type {null | { imageSku: string, wireSku: string, boardSku: string, maxCapacity: number }}
+   */
+  lastFlash: null,
   fileName: '',
   bytes: null,
   info: null,
@@ -1134,6 +1141,28 @@ function bumpBusyProgress(done, total, label) {
 }
 
 /**
+ * Attach a prefilled "report the result" link to a post-flash diagnosis.
+ * Every outcome is worth collecting, so this is not limited to failures.
+ * @param {import('./lib/overlay.js').DeviceDiagnosis} diagnosis
+ */
+function withReportLink(diagnosis) {
+  const last = state.lastFlash
+  if (!last) return diagnosis
+  return {
+    ...diagnosis,
+    report: {
+      label: 'Report this result on GitHub (opens a prefilled issue — no serial)',
+      href: reportIssueUrl({
+        ...last,
+        outcome: diagnosis.kind === 'ok' ? 'worked' : 'did not boot cleanly',
+        os: state.session?.device?.metadata?.os_version || state.deviceSnapshot?.os || '',
+        state: diagnosis.title || '',
+      }),
+    },
+  }
+}
+
+/**
  * After PERFORM: detach DFU, passively watch MIDI until GREET or known failure mode.
  * @param {{ medievalImage?: boolean }} [opts]
  */
@@ -1144,10 +1173,12 @@ async function watchFlashReturn(opts = {}) {
 
   if (!access) {
     busyOverlay.finish(
-      diagnoseDeviceState({
-        timedOut: true,
-        medievalImage: !!opts.medievalImage,
-      }),
+      withReportLink(
+        diagnoseDeviceState({
+          timedOut: true,
+          medievalImage: !!opts.medievalImage,
+        }),
+      ),
     )
     return
   }
@@ -1198,7 +1229,7 @@ async function watchFlashReturn(opts = {}) {
     },
   })
 
-  busyOverlay.finish(diagnosis)
+  busyOverlay.finish(withReportLink(diagnosis))
   state.busy = true // stay locked until dismiss
   renderBootloaderRecovery()
   showDevice()
@@ -1794,12 +1825,26 @@ async function flash() {
 
   // Board revision (deviceHardwareSku) is for display only — never the wire SKU.
   const boardSku = deviceHardwareSku()
+  const maxCapacity = state.storage?.maxCapacity || 0
+
+  // How much is actually known about this combination. Reports are thin, and a
+  // flash that works is as useful to collect as one that doesn't.
+  const reportNote = crossFlashReportNote({
+    imageSku: from,
+    wireSku: targetSku,
+    boardSku,
+    maxCapacity,
+  })
+  if (reportNote) warnings.push(`${reportNote} ${ISSUES_URL}`)
+
   const answer = await askFlashConfirm({
     facts: [
       ['serial', serial],
       ['file', state.fileName || 'firmware'],
       ['image', `${from} ${prepared.info.version}`],
       ...(boardSku && boardSku !== targetSku ? [['board', `${boardSku} (runs the ${targetSku} lineage)`]] : []),
+      // The device knows its own NOR size; it was only ever assumed before.
+      ...(maxCapacity ? [['sample store', `${formatMb(maxCapacity)} reported by this unit`]] : []),
       [
         'DFU_BEGIN sku',
         prepared.rewritten ? `${targetSku} (header rewritten from ${from})` : `${targetSku} (already matched)`,
@@ -1819,6 +1864,8 @@ async function flash() {
   }
 
   const medievalImage = isMedievalSku(from) || isMedievalSku(targetSku)
+  // Outlives the DFU session: watchFlashReturn needs it to build a report link.
+  state.lastFlash = { imageSku: from, wireSku: targetSku, boardSku, maxCapacity }
   state.busy = true
   updateActions()
   flashEta.reset()
@@ -1860,16 +1907,18 @@ async function flash() {
       statusEl.textContent = 'Device rebooting into bootloader — watching…'
       await watchFlashReturn({ medievalImage })
     } else {
-      busyOverlay.finish({
-        kind: 'error',
-        title: 'flash failed',
-        detail: err.message || String(err),
-        steps: [
-          'Check the USB cable / port, then Connect and try again.',
-          'RDY on screen → recovery banner (download stock .tfw → drop → flash).',
-          'ERR SOUND … → SHIFT+ERASE on power-on, then Connect.',
-        ],
-      })
+      busyOverlay.finish(
+        withReportLink({
+          kind: 'error',
+          title: 'flash failed',
+          detail: err.message || String(err),
+          steps: [
+            'Check the USB cable / port, then Connect and try again.',
+            'RDY on screen → recovery banner (download stock .tfw → drop → flash).',
+            'ERR SOUND … → SHIFT+ERASE on power-on, then Connect.',
+          ],
+        }),
+      )
       state.busy = true
     }
   } finally {

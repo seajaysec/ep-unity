@@ -99,6 +99,26 @@ Two consequences worth carrying if you build on this:
 Free-space warnings read `max_capacity` from `/sounds` metadata rather than assuming a
 64 MiB part, so a 128 MiB unit is no longer told to go buy a 128 MiB unit.
 
+Hardware note while we're here: **there is no 64 MiB EP-40.** Riddim ships 128 MiB only.
+The EP-133 ships both — `TE032AS001` at 64 MiB, `TE032AS002` at 128 MiB.
+
+## Reporting a result
+
+Outcome reports are the entire evidence base for this, and there are very few. What is on
+record right now:
+
+| Combination | Reports |
+|---|---|
+| EP-40 firmware on EP-133 hardware | 1, on a 64 MiB board |
+| EP-40 firmware on a 128 MiB EP-133 | 0 |
+| EP-133 firmware on EP-40 hardware | 0 |
+| EP-1320 either direction | rejected after transfer — different `KEYHASH` |
+
+**A flash that worked is as useful to report as one that didn't.** If you run any of these,
+please [open an issue](https://github.com/seajaysec/ep-unity/issues). The tool offers a
+prefilled link after every flash; it carries the SKUs, OS and reported capacity, and
+deliberately leaves out your serial.
+
 ## Command line
 
 ```bash

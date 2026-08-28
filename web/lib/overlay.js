@@ -15,6 +15,7 @@
  *   title: string,
  *   detail: string,
  *   steps?: string[],
+ *   report?: { label: string, href: string },
  * }} DeviceDiagnosis
  */
 
@@ -268,11 +269,24 @@ export function createBusyOverlay() {
     if (stepsEl) {
       stepsEl.replaceChildren()
       const steps = diagnosis.steps || []
-      if (steps.length) {
+      const report = diagnosis.report
+      if (steps.length || report) {
         stepsEl.hidden = false
         for (const s of steps) {
           const li = document.createElement('li')
           li.textContent = s
+          stepsEl.append(li)
+        }
+        // Outcome reports are the project's whole evidence base, so ask for one
+        // on every result — a flash that worked is as useful as one that didn't.
+        if (report) {
+          const li = document.createElement('li')
+          const a = document.createElement('a')
+          a.href = report.href
+          a.textContent = report.label
+          a.target = '_blank'
+          a.rel = 'noopener noreferrer'
+          li.append(a)
           stepsEl.append(li)
         }
       } else {
