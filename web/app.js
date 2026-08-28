@@ -27,7 +27,6 @@ import {
   reportIssueUrl,
   reportFileText,
   reportFilename,
-  reportDestination,
   ISSUES_URL,
 } from './lib/reports.js'
 import {
@@ -1165,19 +1164,19 @@ function withReportLink(diagnosis) {
     state: diagnosis.title || '',
     debugTexts: diagnosis.debugTexts || [],
   }
-  const dest = reportDestination()
   return {
     ...diagnosis,
     report: {
-      // The file is the report; the link is only where it goes. Save first so
-      // the device's debug lines are captured before the overlay is dismissed.
+      // The issue carries the whole report, so reporting is one click with
+      // nothing to attach. The file is for keeping a copy -- and for the rare
+      // device that produces more debug output than fits in a URL.
+      label: 'Report this result — opens a filled-in GitHub issue, no serial →',
+      href: reportIssueUrl(facts),
       save: {
-        label: `Save report (${reportFilename()}) — no serial, no sample data`,
+        label: `Save a copy (${reportFilename()})`,
         filename: reportFilename(),
         text: reportFileText(facts),
       },
-      label: `${dest.label} →`,
-      href: dest.href === ISSUES_URL ? reportIssueUrl(facts) : dest.href,
     },
   }
 }
