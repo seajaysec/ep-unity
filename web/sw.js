@@ -6,7 +6,7 @@
  * the rest of the tool follows.
  */
 
-const CACHE = 'ep-unity-shell-v1'
+const CACHE = 'ep-unity-shell-v4'
 
 const SHELL = [
   './',
@@ -22,6 +22,7 @@ const SHELL = [
   './lib/pak.js',
   './lib/te-pack.js',
   './lib/backup.js',
+  './lib/sku.js',
   './lib/demo.js',
   './lib/kotu.bundle.js',
 ]

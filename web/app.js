@@ -21,6 +21,7 @@ import {
   formatMb,
 } from './lib/pak.js'
 import { findOutput, runDemoLoop, pickDemo } from './lib/demo.js'
+import { pickWireSku, pickBoardSku } from './lib/sku.js'
 import {
   openFileSession,
   backupDevice,
@@ -355,18 +356,40 @@ function saveProfile(serial, patch) {
   const prev = loadProfile(serial) || {
     serial,
     hardwareSku: '',
+    baseSku: '',
+    baseSkuFor: '',
     firstSeenAt: new Date().toISOString(),
   }
   const next = { ...prev, ...patch, serial, updatedAt: new Date().toISOString() }
   // hardware SKU: prefer bootloader GREET, else first-seen SKU, never overwrite with later flash SKU once set
   if (!next.hardwareSku && patch.greetSku) next.hardwareSku = patch.greetSku
   if (patch.mode === 'bootloader' && patch.greetSku) next.hardwareSku = patch.greetSku
+  // Lineage SKU is a property of the board, so it never changes and only DFU
+  // GREET reports it. Keep the known-good value when a FILE session omits it.
+  if (!patch.baseSku) {
+    next.baseSku = prev.baseSku || ''
+    next.baseSkuFor = prev.baseSkuFor || ''
+  }
   localStorage.setItem(PROFILE_PREFIX + serial, JSON.stringify(next))
   return next
 }
 
+/** Sources the SKU choice draws on. See lib/sku.js for why there are three. */
+function skuSources() {
+  const snapshot = state.deviceSnapshot
+  const metadata = state.session?.device?.metadata
+  const serial = metadata?.serial || snapshot?.serial || ''
+  return { metadata, snapshot, profile: loadProfile(serial) }
+}
+
+/** SKU announced at DFU_BEGIN — the firmware lineage, never the board revision. */
 function deviceSku() {
-  return state.session?.device?.metadata?.sku || state.deviceSnapshot?.sku || ''
+  return pickWireSku(skuSources())
+}
+
+/** Board revision, for display only. Never put this on the wire. */
+function deviceHardwareSku() {
+  return pickBoardSku(skuSources())
 }
 
 function isDeviceKnown() {
@@ -378,6 +401,7 @@ function snapshotFromDevice(d) {
   return {
     serial: m.serial || '',
     sku: m.sku || '',
+    baseSku: m.base_sku || '',
     product: m.product || '',
     mode: m.mode || '',
     os: m.os_version || '',
@@ -490,6 +514,8 @@ function mergeFileInfoIntoSnapshot(info, identityCode) {
   state.deviceSnapshot = {
     serial: info.serial || prev?.serial || '',
     sku: info.sku || prev?.sku || '',
+    // FILE info has no base_sku (see deviceSku) — carry the DFU-side one forward.
+    baseSku: prev?.baseSku || '',
     product: info.product || prev?.product || '',
     mode: prev?.mode || 'normal',
     os: info.osVersion || prev?.os || '',
@@ -500,6 +526,8 @@ function mergeFileInfoIntoSnapshot(info, identityCode) {
   if (state.deviceSnapshot.serial) {
     saveProfile(state.deviceSnapshot.serial, {
       greetSku: state.deviceSnapshot.sku,
+      baseSku: state.deviceSnapshot.baseSku,
+      baseSkuFor: state.deviceSnapshot.baseSku ? state.deviceSnapshot.sku : '',
       product: state.deviceSnapshot.product,
       mode: state.deviceSnapshot.mode,
       os: state.deviceSnapshot.os,
@@ -957,6 +985,10 @@ function updateRewritePanel() {
 
   const fileSku = state.info?.sku || ''
   const wireSku = deviceSku()
+  const hwSku = deviceHardwareSku()
+  // A 128 MiB board (TE032AS002) runs the AS001 lineage, so its revision differs
+  // from the wire SKU. Name the board so AS001 at DFU_BEGIN isn't a surprise.
+  const wireLabel = hwSku && hwSku !== wireSku ? `${wireSku} · board ${hwSku}` : wireSku
   const from = productLabel(fileSku)
   const to = productLabel(wireSku)
 
@@ -968,10 +1000,10 @@ function updateRewritePanel() {
     toSku.textContent = 'needed for DFU_BEGIN SKU'
   } else if (fileSku && fileSku !== wireSku) {
     toProduct.textContent = `updating to flash on ${to.long}`
-    toSku.textContent = wireSku
+    toSku.textContent = wireLabel
   } else {
     toProduct.textContent = `flashing on ${to.long}`
-    toSku.textContent = wireSku
+    toSku.textContent = wireLabel
   }
 
   if (!fileSku && !wireSku) {
@@ -1230,6 +1262,8 @@ function showIdentity() {
   const serial = snap.serial || ''
   const profile = saveProfile(serial, {
     greetSku: snap.sku,
+    baseSku: snap.baseSku,
+    baseSkuFor: snap.baseSku ? snap.sku : '',
     product: snap.product,
     mode: snap.mode,
     os: snap.os,
@@ -1758,11 +1792,14 @@ async function flash() {
     )
   }
 
+  // Board revision (deviceHardwareSku) is for display only — never the wire SKU.
+  const boardSku = deviceHardwareSku()
   const answer = await askFlashConfirm({
     facts: [
       ['serial', serial],
       ['file', state.fileName || 'firmware'],
       ['image', `${from} ${prepared.info.version}`],
+      ...(boardSku && boardSku !== targetSku ? [['board', `${boardSku} (runs the ${targetSku} lineage)`]] : []),
       [
         'DFU_BEGIN sku',
         prepared.rewritten ? `${targetSku} (header rewritten from ${from})` : `${targetSku} (already matched)`,
@@ -1878,9 +1915,16 @@ function refreshPakPlan() {
   } else {
     fitNote = ' · connect device to restore (or click restore and you’ll be prompted)'
   }
-  const norWarn =
-    space.needed > 50 * 1024 * 1024
-      ? ' — caution: may be tight on 64 MiB NOR'
+  // Was a flat 50 MB test, which fires regardless of the part actually fitted.
+  // The device reports max_capacity via /sounds metadata (62,853,120 on a
+  // 64 MiB unit; ~127.8 M on a 128 MiB TE032AS002), so prefer that.
+  const maxCap = state.storage?.maxCapacity || 0
+  const norWarn = maxCap
+    ? space.needed > maxCap * 0.8
+      ? ' — caution: uses most of the capacity on this unit'
+      : ''
+    : space.needed > 50 * 1024 * 1024
+      ? ' — caution: may be tight on a 64 MiB unit'
       : ''
   const packNote =
     Math.abs(space.needed - plan.wavBytes) > 64 * 1024
