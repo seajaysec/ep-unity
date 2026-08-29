@@ -21,6 +21,21 @@
   --xform-from: #6a6e76;
   --xform-to: #9a958c;
 
+  /* Accent split by role. --copper is the brand fill; as *text* on a light
+     chassis it only reaches 2.5:1, so text and fills get separate tokens and
+     each theme picks a value that clears 4.5:1 on its own ground. */
+  --copper-text: var(--copper-hot);
+  --on-copper: var(--pad);
+  /* --warn doubles as a border and as heading text. The amber reads well on a
+     dark chassis and drops to ~1.9:1 on a cream one, so the text role splits
+     off and the light themes darken it. */
+  --warn-text: var(--warn);
+  /* Links had no rule at all: they fell back to the UA's #0000EE / #551A8B,
+     which land at 1.95:1 and 1.66:1 on this chassis. Visited was the worse of
+     the two, which is why a clicked link looked like it had gone out. */
+  --link: #d9d3c9;
+  --link-visited: #c3b2d8;
+
   --display: "DM Sans", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
 
@@ -42,6 +57,10 @@ html[data-device="ep133"] {
   --ok: #9aa295;
   --quote-wash: rgba(255, 90, 0, 0.1);
   --xform-to: #ff5a00;
+  --copper-text: var(--copper-hot);
+  --on-copper: var(--pad);
+  --link: #ff9a5c;
+  --link-visited: #d6a9e0;
 }
 
 /* Connected EP-40 / riddim — cream body, forest pads, same orange accent */
@@ -61,6 +80,13 @@ html[data-device="ep40"] {
   --quote-wash: rgba(255, 90, 0, 0.12);
   --danger-wash: rgba(196, 48, 40, 0.1);
   --xform-to: #1f7a4d;
+  /* Cream chassis: the bright orange fails as text and as a fill behind pale
+     text, so text goes darker and copper fills carry near-black instead. */
+  --copper-text: #8a3300;
+  --on-copper: #241000;
+  --warn-text: #8a5200;
+  --link: #8a3300;
+  --link-visited: #5c3a86;
 }
 
 /* Connected EP-1320 / medieval — parchment + seal red (experimental path) */
@@ -80,6 +106,11 @@ html[data-device="ep1320"] {
   --quote-wash: rgba(139, 30, 30, 0.1);
   --danger-wash: rgba(139, 30, 30, 0.12);
   --xform-to: #8b1e1e;
+  --copper-text: var(--copper);
+  --on-copper: var(--pad);
+  --warn-text: #8a5200;
+  --link: #7d1a1a;
+  --link-visited: #4f2f7a;
 }
 
 /* Image product tints the left side of the rewrite transform */
@@ -104,8 +135,10 @@ html, body {
     var(--mask);
   color: var(--silk);
   font-family: var(--display);
-  font-size: 15px;
-  line-height: 1.45;
+  /* 15px made the mono labels land at 9-11px. 16px is the browser default for
+     a reason, and the label floor below keeps the smallest text at ~12px. */
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   transition: background 0.4s ease, color 0.35s ease;
 }
@@ -119,6 +152,29 @@ code, .hex {
   margin: 0 auto;
   padding: var(--gutter);
   padding-bottom: 4rem;
+}
+
+/* Underlined as well as coloured: colour alone is not an affordance, and the
+   accent hue shifts per connected device. */
+a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+a:visited { color: var(--link-visited); }
+a:hover,
+a:focus-visible { color: var(--copper-text); }
+
+/* One visible focus ring for everything keyboard-reachable. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--copper-text);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .top {
@@ -141,7 +197,7 @@ code, .hex {
 /* Version sits with the wordmark, not above it: it reads as part of the name. */
 .version {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   letter-spacing: 0.06em;
   color: var(--silk-dim);
   border: 1px solid var(--trace);
@@ -162,7 +218,7 @@ code, .hex {
   margin: 0.55rem 0 0;
   max-width: 28rem;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   letter-spacing: 0.04em;
   color: var(--silk-dim);
   line-height: 1.55;
@@ -217,11 +273,11 @@ code, .hex {
 .rail h2 {
   margin: 0 0 0.4rem;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--copper);
+  color: var(--copper-text);
 }
 
 .hint {
@@ -277,7 +333,7 @@ code, .hex {
   white-space: nowrap;
   color: var(--ok);
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .fw-links {
@@ -291,10 +347,10 @@ code, .hex {
   color: var(--silk-dim);
   text-decoration: none;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   letter-spacing: 0.04em;
 }
-.fw-links a:hover { color: var(--copper-hot); }
+.fw-links a:hover { color: var(--copper-text); }
 
 .xform {
   display: grid;
@@ -359,7 +415,7 @@ code, .hex {
 .xform-label {
   display: block;
   font-family: var(--mono);
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--silk-dim);
@@ -378,13 +434,13 @@ code, .hex {
   display: block;
   margin-top: 0.35rem;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--silk-dim);
   word-break: break-all;
 }
 .xform-verb {
   font-family: var(--mono);
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: center;
@@ -423,7 +479,7 @@ html[data-cross="1"] .rewrite-rail h2::after {
 .meta div { margin: 0; }
 .meta dt {
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.76rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--silk-dim);
@@ -444,7 +500,7 @@ html[data-cross="1"] .rewrite-rail h2::after {
 }
 .hex-caption {
   font-family: var(--mono);
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--silk-dim);
@@ -457,7 +513,7 @@ html[data-cross="1"] .rewrite-rail h2::after {
 .hex-btn {
   font: inherit;
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--silk-dim);
@@ -468,7 +524,7 @@ html[data-cross="1"] .rewrite-rail h2::after {
 }
 .hex-btn:hover { color: var(--silk); }
 .hex-btn[aria-pressed="true"] {
-  color: var(--pad);
+  color: var(--on-copper);
   background: var(--copper);
 }
 .hex-btn:disabled {
@@ -482,7 +538,7 @@ html[data-cross="1"] .rewrite-rail h2::after {
   background: var(--pad);
   border: 1px solid var(--trace);
   color: var(--ok);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1.45;
   overflow: visible;
   max-width: 100%;
@@ -528,7 +584,7 @@ html[data-cross="1"] .rewrite-rail h2::after {
   letter-spacing: 0.02em;
   border: 0;
   background: var(--copper);
-  color: var(--pad);
+  color: var(--on-copper);
   padding: 0.75rem 1.1rem;
   cursor: pointer;
 }
@@ -578,11 +634,11 @@ html[data-cross="1"] .rewrite-rail h2::after {
 .recovery h2 {
   margin: 0 0 0.45rem;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--warn, #e8a860);
+  color: var(--warn-text, #e8a860);
 }
 .recovery .hint { margin-bottom: 0.85rem; }
 .recovery .actions { margin-bottom: 0.5rem; }
@@ -627,7 +683,7 @@ body.busy-locked .page {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--copper-hot);
+  color: var(--copper-text);
 }
 .busy-card .hint {
   margin: 0 0 1rem;
@@ -687,11 +743,11 @@ body.busy-locked .page {
 .identity h2 {
   margin: 0 0 0.35rem;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--copper);
+  color: var(--copper-text);
 }
 .id-head .hint { margin-bottom: 1rem; }
 .id-serial-row {
@@ -705,7 +761,7 @@ body.busy-locked .page {
 .id-label {
   margin: 0;
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.76rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--silk-dim);
@@ -730,7 +786,7 @@ body.busy-locked .page {
 }
 .id-meta dt {
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.76rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--silk-dim);
@@ -757,14 +813,11 @@ body.busy-locked .page {
   display: block;
   font-style: normal;
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   line-height: 1.4;
   color: var(--silk-dim);
 }
 
-.lede a { color: var(--copper-hot); }
-.nor-hint a { color: var(--copper-hot); }
-.foot a { color: var(--copper-hot); }
 
 .dot {
   width: 0.55rem;
@@ -830,7 +883,7 @@ body.busy-locked .page {
 }
 #progress-label {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--silk-dim);
 }
 
@@ -869,7 +922,7 @@ html[data-device="ep1320"] .warn {
 .status {
   margin: 0.75rem 0 0;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--silk-dim);
   min-height: 1.1em;
 }
@@ -885,7 +938,7 @@ html[data-device="ep1320"] .warn {
 }
 .foot p { margin: 0 0 0.55rem; }
 .foot p:last-child { margin-bottom: 0; }
-.foot code { color: var(--silk); font-size: 0.9em; }
+.foot code { color: var(--silk); font-size: 0.95em; }
 
 .changelog {
   margin-top: 1.5rem;
@@ -895,7 +948,7 @@ html[data-device="ep1320"] .warn {
 .changelog h2 {
   margin: 0 0 0.9rem;
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -950,7 +1003,7 @@ button.linkish {
   margin: 0;
   border: 0;
   background: none;
-  color: var(--copper);
+  color: var(--copper-text);
   font: inherit;
   font-size: inherit;
   text-decoration: underline;
@@ -962,7 +1015,7 @@ button.linkish:disabled {
   cursor: not-allowed;
   text-decoration: none;
 }
-button.linkish:hover:not(:disabled) { color: var(--copper-hot); }
+button.linkish:hover:not(:disabled) { color: var(--copper-text); }
 
 
 .proj-list {
@@ -986,14 +1039,14 @@ button.linkish:hover:not(:disabled) { color: var(--copper-hot); }
 .proj-opt input { accent-color: var(--copper); }
 .proj-opt .pn {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--copper);
   min-width: 2.5rem;
 }
 .proj-opt .ps {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   color: var(--silk-dim);
 }
 
@@ -1012,7 +1065,7 @@ button.linkish:hover:not(:disabled) { color: var(--copper-hot); }
 .capability-title {
   margin: 0 0 0.5rem;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1020,7 +1073,6 @@ button.linkish:hover:not(:disabled) { color: var(--copper-hot); }
 }
 .capability[data-tone="warn"] .capability-title { color: var(--warn, #e8a860); }
 .capability .hint { margin: 0; }
-.capability a { color: var(--copper-hot); }
 
 /* --- touch targets: WCAG 2.5.8 floor is 24px; these were 16-25px --- */
 .hex-btn { min-height: 2.25rem; }
@@ -1078,11 +1130,11 @@ button.linkish:hover:not(:disabled) { color: var(--copper-hot); }
 .confirm-dialog h2 {
   margin: 0 0 0.9rem;
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--copper);
+  color: var(--copper-text);
 }
 .confirm-dialog .hint { white-space: pre-line; }
 .confirm-dialog .actions {
@@ -1105,7 +1157,7 @@ button.linkish:hover:not(:disabled) { color: var(--copper-hot); }
 }
 .confirm-facts dt {
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--silk-dim);
@@ -1146,7 +1198,7 @@ button.linkish:hover:not(:disabled) { color: var(--copper-hot); }
 .proj-samples summary {
   cursor: pointer;
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   letter-spacing: 0.06em;
   color: var(--silk-dim);
   min-height: 1.75rem;
@@ -1161,7 +1213,7 @@ button.linkish:hover:not(:disabled) { color: var(--copper-hot); }
   gap: 0.6rem;
   align-items: center;
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   color: var(--silk-dim);
 }
 .smp-play {
@@ -1193,7 +1245,7 @@ body.page-drag::after {
   padding: 0.8rem;
   text-align: center;
   background: var(--copper);
-  color: var(--pad);
+  color: var(--on-copper);
   font-family: var(--mono);
   font-size: 0.75rem;
   letter-spacing: 0.08em;
@@ -1208,7 +1260,7 @@ body.page-drag::after {
 .demo-note {
   flex-basis: 100%;
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   letter-spacing: 0.04em;
   color: var(--silk-dim);
 }
