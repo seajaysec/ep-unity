@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" data-device="ep1320">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ep-unity · medieval lab</title>
+  <meta name="description" content="EP-1320 Medieval test bench: connection check, one probe flash, automatic restore to stock, and a log to send back." />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#141516" />
+  <link rel="stylesheet" href="./fonts.css" />
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .mlab { max-width: 46rem; display: grid; gap: 2rem; }
+    .mlab section h2 {
+      margin: 0 0 0.5rem; font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--copper);
+    }
+    .mlab .row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin: 0.6rem 0; }
+    .mlab .file { display: grid; gap: 0.25rem; margin: 0.5rem 0; font-size: 0.9rem; color: var(--silk-dim); }
+    .mlab .file input { color: var(--silk); max-width: 100%; }
+    .mlab .out {
+      font-family: var(--mono); font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap;
+      word-break: break-word; background: var(--pad); border: 1px solid var(--trace);
+      padding: 0.7rem 0.8rem; margin: 0.5rem 0 0; min-height: 1.5em; color: var(--silk);
+    }
+    .mlab .verdict { font-family: var(--mono); font-size: 1rem; letter-spacing: 0.06em; margin: 0.6rem 0 0; }
+    .mlab .verdict[data-kind="ok"] { color: var(--ok); }
+    .mlab .verdict[data-kind="bad"] { color: var(--danger); }
+    .mlab .verdict[data-kind="busy"] { color: var(--warn); }
+    .mlab progress { width: 100%; height: 0.5rem; accent-color: var(--copper); }
+    .mlab #log { max-height: 18rem; overflow: auto; }
+    .mlab button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .mlab a { color: var(--copper-hot); }
+    .mlab ol { margin: 0 0 1rem 1.2rem; padding: 0; color: var(--silk-dim); line-height: 1.55; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div class="brand">
+        <h1>medieval lab</h1>
+        <p class="brand-sub">ep-unity test bench for the EP-1320 · one probe flash · automatic restore</p>
+      </div>
+      <a class="te-link" href="./">main tool</a>
+    </header>
+
+    <section class="capability" id="capability" hidden role="alert">
+      <p class="capability-title">This page needs WebMIDI with SysEx.</p>
+      <p class="hint">Use Chrome or Edge on a desktop (or Chrome on Android). Safari and iOS can’t run it.</p>
+    </section>
+
+    <div class="mlab">
+      <div class="lede">
+        <p>
+          This page answers one question: <em>will an EP-1320 boot firmware built for the
+          EP-133 / EP-40?</em> Their firmware is signed with a different key than the Medieval’s,
+          so the likely answer is no — the unit rejects it and falls back to its bootloader.
+          Then this page puts the stock Medieval firmware back automatically.
+        </p>
+        <p>
+          Before you start, close every other app or browser tab that uses MIDI — TE’s
+          sample tool and updater included. On Windows only one program can hold the port.
+        </p>
+      </div>
+
+      <section>
+        <h2>1 · connection check</h2>
+        <p class="hint">Plug the EP-1320 in over USB-C and turn it on. This step only reads — it changes nothing on the unit.</p>
+        <div class="row">
+          <button type="button" class="te-link" id="btn-connect">run connection check</button>
+        </div>
+        <p class="verdict" id="connect-verdict"></p>
+      </section>
+
+      <section>
+        <h2>2 · firmware files</h2>
+        <p class="hint">
+          Download both from Teenage Engineering yourself — this page never fetches firmware.
+        </p>
+        <ol>
+          <li>Probe image: EP-133 <a href="https://teenage.engineering/downloads/ep-133" target="_blank" rel="noreferrer">download page ↗</a></li>
+          <li>Restore image: EP-1320 stock <a href="https://teenage.engineering/downloads/ep-1320" target="_blank" rel="noreferrer">download page ↗</a></li>
+        </ol>
+        <label class="file">probe image (EP-133 or EP-40 .tfw)
+          <input type="file" id="file-probe" accept=".tfw" />
+        </label>
+        <label class="file">restore image (stock EP-1320 .tfw)
+          <input type="file" id="file-stock" accept=".tfw" />
+        </label>
+        <p class="out" id="files-status">no files yet</p>
+      </section>
+
+      <section>
+        <h2>3 · probe flash + automatic restore</h2>
+        <p class="hint">
+          What happens: the probe image is flashed with its header set to the Medieval’s SKU.
+          The page waits for the unit to reboot and records what it reports. Unless the probe
+          actually booted, the page then flashes the stock Medieval firmware back and checks
+          the unit is running it again. Samples and projects stay in their own storage and a
+          firmware flash doesn’t touch them. Even so, there’s no backup path for the Medieval yet.
+        </p>
+        <p class="warn">
+          Unsupported. If the Medieval’s bootloader behaves differently from the EP-133’s, the unit
+          could stop responding. Keep the page open and the cable in until it says done.
+        </p>
+        <label class="risk experimental" style="display:block;margin-top:1rem">
+          <input type="checkbox" id="ack" />
+          <span>I understand this could brick my EP-1320 and I’m doing it anyway.</span>
+        </label>
+        <div class="row">
+          <button type="button" class="te-link" id="btn-probe" disabled>run probe</button>
+          <button type="button" class="te-link" id="btn-restore" disabled>restore stock only</button>
+        </div>
+        <progress id="progress" max="100" value="0" hidden></progress>
+        <p class="status" id="progress-text"></p>
+        <p class="verdict" id="probe-verdict"></p>
+      </section>
+
+      <section>
+        <h2>4 · send the result back</h2>
+        <p class="hint">
+          <strong>Copy summary</strong> gives a short text for a chat message.
+          <strong>Download log</strong> saves the full wire log. Send it as a file if you can.
+        </p>
+        <div class="row">
+          <button type="button" class="te-link" id="btn-copy">copy summary</button>
+          <button type="button" class="te-link" id="btn-download">download log</button>
+        </div>
+        <p class="out" id="summary"></p>
+        <p class="hint dim" style="margin-top:1rem">live log</p>
+        <p class="out" id="log"></p>
+      </section>
+    </div>
+  </div>
+  <script type="module" src="./medieval-lab.js"></script>
+</body>
+</html>
