@@ -54,6 +54,7 @@ export function parseMetadata(text) {
     serial: '',
     sku: '',
     sw_version: '',
+    bl_version: '',
     base_sku: '',
   }
   for (const part of text.split(';')) {
@@ -66,9 +67,15 @@ export function parseMetadata(text) {
   return out
 }
 
-function parseIdentity(data) {
-  if (data.length !== 17) return null
-  if (data[0] !== 0xf0 || data[1] !== 0x7e) return null
+/**
+ * Universal Identity Reply: F0 7E <dev> 06 02 <mfg×3> <family×2> <model×2> <ver×4> F7.
+ * EP-133/EP-40 send exactly 17 bytes. The length check is loose (>= 13) because
+ * the EP-1320 has been reported not to answer identity in a shape we accepted,
+ * and the version tail is the part most likely to differ.
+ */
+export function parseIdentity(data) {
+  if (data.length < 13 || data[data.length - 1] !== 0xf7) return null
+  if (data[0] !== 0xf0 || data[1] !== 0x7e || data[3] !== 0x06 || data[4] !== 0x02) return null
   if (data[5] !== TE_MFG[0] || data[6] !== TE_MFG[1] || data[7] !== TE_MFG[2]) return null
   const model = data[8] ^ (data[9] << 7)
   const variant = data[10] ^ (data[11] << 7)
@@ -112,7 +119,7 @@ function parseTeSysex(data) {
   const packed = data.subarray(i, data.length - 1)
   const payload = packed.length ? unpack(packed) : new Uint8Array()
   const text = new TextDecoder().decode(payload)
-  return { isRequest, requestId, command, status, payload, text }
+  return { device: data[4], isRequest, requestId, command, status, payload, text }
 }
 
 /**
@@ -125,10 +132,36 @@ function parseTeSysex(data) {
  * }} TeDevice
  */
 
+/** Hex string of a frame; long DFU chunks are cut so a log stays readable. */
+export function frameHex(data, max = 64) {
+  const u8 = data instanceof Uint8Array ? data : Uint8Array.from(data)
+  const head = [...u8.subarray(0, max)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return u8.length > max ? `${head}…(+${u8.length - max})` : head
+}
+
+/**
+ * GREET candidates when identity stays silent. The request's device byte is
+ * the product byte (0x33 EP-133, 0x3C EP-40); EP-1320's is unknown, so after
+ * the known ones and the 0x7F broadcast, try the rest of the range.
+ */
+export function greetCandidates() {
+  const first = [0x7f, 0x33, 0x3c]
+  const rest = []
+  for (let i = 0; i < 0x7f; i++) if (!first.includes(i)) rest.push(i)
+  return [...first, ...rest]
+}
+
 export class TeDfuSession {
-  /** @param {MIDIAccess} access */
-  constructor(access) {
+  /**
+   * @param {MIDIAccess} access
+   * @param {{ tap?: (dir: 'rx' | 'tx', data: Uint8Array, port: string) => void }} [opts]
+   *   Optional wire tap for diagnostics; sees every frame this session sends or receives.
+   */
+  constructor(access, opts = {}) {
     this.access = access
+    this.tap = opts.tap ?? null
+    /** Unrecognised SysEx seen while identifying — surfaced in the failure message. */
+    this.unparsed = []
     /** @type {TeDevice | null} */
     this.device = null
     this._requestId = Math.floor(Math.random() * 4095)
@@ -137,12 +170,17 @@ export class TeDfuSession {
     this._onMessage = (e) => this._dispatch(e)
   }
 
-  static async open() {
+  static async open(opts = {}) {
     if (!navigator.requestMIDIAccess) {
       throw new TeError('WebMIDI is not available in this browser')
     }
     const access = await navigator.requestMIDIAccess({ sysex: true })
-    return new TeDfuSession(access)
+    return new TeDfuSession(access, opts)
+  }
+
+  _tx(output, data) {
+    this.tap?.('tx', data instanceof Uint8Array ? data : Uint8Array.from(data), output.name ?? '')
+    output.send(data)
   }
 
   listEpPorts() {
@@ -168,6 +206,7 @@ export class TeDfuSession {
 
   _dispatch(event) {
     const data = new Uint8Array(event.data)
+    this.tap?.('rx', data, event.target?.name ?? '')
     const identity = parseIdentity(data)
     if (identity && this._identityWaiter) {
       const w = this._identityWaiter
@@ -178,7 +217,11 @@ export class TeDfuSession {
     }
 
     const msg = parseTeSysex(data)
+    if (!msg && this._identityWaiter && data[0] === 0xf0 && this.unparsed.length < 8) {
+      this.unparsed.push(frameHex(data, 24))
+    }
     if (!msg || msg.isRequest || msg.requestId < 0) return
+    msg.input = event.target
     const waiter = this._waiters.get(msg.requestId)
     if (!waiter) return
 
@@ -230,7 +273,7 @@ export class TeDfuSession {
     frame[8] = command
     frame[frame.length - 1] = 0xf7
     if (packedLen) packToBuffer(raw, frame.subarray(9, 9 + packedLen))
-    output.send(frame)
+    this._tx(output, frame)
     return id
   }
 
@@ -259,7 +302,18 @@ export class TeDfuSession {
       identified = await this._identify(output, inputs).catch(() => null)
       if (identified) break
     }
-    if (!identified) throw new TeError('device did not answer MIDI identity')
+    // Identity silent or unparseable: address GREET directly. Harmless — GREET
+    // only reads metadata, and a unit ignores frames for another device byte.
+    if (!identified) {
+      for (const output of outputs) {
+        identified = await this._discoverByGreet(output).catch(() => null)
+        if (identified) break
+      }
+    }
+    if (!identified) {
+      const seen = this.unparsed.length ? ` (saw: ${this.unparsed.join(' | ')})` : ' (no SysEx reply at all)'
+      throw new TeError(`device did not answer MIDI identity or GREET${seen}`)
+    }
 
     const greet = await this.request(identified.output, identified.deviceId, CMD.GREET, [], {
       timeoutMs: 5000,
@@ -277,6 +331,8 @@ export class TeDfuSession {
       output: identified.output,
       deviceId: identified.deviceId,
       identitySku: identified.sku,
+      /** 'identity' normally; 'greet' when identity was silent and the sweep found it. */
+      via: identified.viaGreet ? 'greet' : 'identity',
       metadata,
     }
     return this.device
@@ -294,8 +350,45 @@ export class TeDfuSession {
           resolve({ output, input: info.input, deviceId: info.deviceId, sku: info.sku })
         },
       }
-      output.send([0xf0, 0x7e, 0x7f, 0x06, 0x01, 0xf7])
+      this._tx(output, [0xf0, 0x7e, 0x7f, 0x06, 0x01, 0xf7])
     })
+  }
+
+  /**
+   * Sweep GREET across device bytes; the first OK reply names the device byte.
+   * @param {MIDIOutput} output
+   * @returns {Promise<{ output: MIDIOutput, input: MIDIInput, deviceId: number, sku: string } | null>}
+   */
+  async _discoverByGreet(output, { timeoutMs = 3000, gapMs = 4 } = {}) {
+    const pending = []
+    for (const id of greetCandidates()) {
+      const p = this.request(output, id, CMD.GREET, [], { timeoutMs }).then(
+        (msg) => ({ msg, id }),
+        () => null,
+      )
+      pending.push(p)
+      if (gapMs) await new Promise((r) => setTimeout(r, gapMs))
+    }
+    const first = await new Promise((resolve) => {
+      let left = pending.length
+      for (const p of pending) {
+        p.then((r) => {
+          if (r) resolve(r)
+          else if (--left === 0) resolve(null)
+        })
+      }
+    })
+    if (!first) return null
+    const meta = parseMetadata(first.msg.text)
+    const { inputs } = this.listEpPorts()
+    return {
+      output,
+      input: first.msg.input ?? inputs[0],
+      // The reply's own device byte beats the candidate (0x7F broadcast may answer).
+      deviceId: first.msg.device ?? first.id,
+      sku: meta.sku,
+      viaGreet: true,
+    }
   }
 
   /**
