@@ -112,7 +112,7 @@ export function parseReleasesJson(data) {
         sku: d.sku,
         version: d.version || fb?.version || '',
         // releases.json uses site-relative paths.
-        fwUrl: url.startsWith('http') ? url : `https://teenage.engineering${url}`,
+        fwUrl: safeFwUrl(url.startsWith('http') ? url : `https://teenage.engineering${url}`),
         downloadPage: fb?.downloadPage || '',
         experimental: EXPERIMENTAL_SKUS.has(d.sku),
       }
@@ -121,6 +121,16 @@ export function parseReleasesJson(data) {
     throw new Error('no EP-133 / EP-40 entries — is this really releases.json?')
   }
   return devices
+}
+
+/** Only https links are rendered as download hrefs (blocks javascript:, data:, …). */
+export function safeFwUrl(url) {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' ? u.href : ''
+  } catch {
+    return ''
+  }
 }
 
 /** Persist a user-supplied catalog so they only fetch it from TE once. */
@@ -138,7 +148,10 @@ export function saveUserCatalog(devices) {
 export function loadUserCatalog() {
   try {
     const raw = JSON.parse(localStorage.getItem(USER_CATALOG_KEY) || 'null')
-    return raw?.devices?.length ? raw : null
+    if (!raw?.devices?.length) return null
+    // Stored catalogs predate validation or could be edited by hand; re-check every link.
+    const devices = raw.devices.map((d) => ({ ...d, fwUrl: safeFwUrl(d.fwUrl) }))
+    return { ...raw, devices }
   } catch {
     return null
   }
