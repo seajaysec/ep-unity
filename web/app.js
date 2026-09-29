@@ -483,15 +483,15 @@ function renderMedievalWarn() {
   medievalWarn.hidden = false
   if (!state.medievalExperimental) {
     medievalWarn.textContent = lines(
-      'EP-1320 Medieval detected (device and/or image). Untested here — different KEYHASH.',
+      'EP-1320 Medieval detected (device and/or image). Different KEYHASH: tested both ways, rejected both ways.',
       'On EP-133/40 a Medieval image typically soft-rejects to RDY/bootloader (recoverable).',
       'Enable the experimental checkbox to flash or export wire files that involve Medieval.',
     )
   } else {
     medievalWarn.textContent = lines(
       'Medieval experimental is ON.',
-      'Expect soft-rejects to RDY on non-Medieval hardware.',
-      'Flashes involving EP-1320 are not validated on this tool.',
+      'EP-133/40 reject Medieval images, and a real EP-1320 rejected an EP-40 image (both recovered).',
+      'Cross-flashing a Medieval does not work; this path only proves that.',
     )
   }
 }
