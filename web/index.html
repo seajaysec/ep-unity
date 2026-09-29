@@ -142,18 +142,7 @@ see the four-byte rewrite</p>
         <p class="warn" id="drop-warn" hidden></p>
         <ul class="fw-links" id="fw-links"></ul>
         <p class="hint dim" id="fw-catalog-status" aria-live="polite">loading catalog…</p>
-        <label class="risk experimental">
-          <input type="checkbox" id="medieval-exp" />
-          <span>
-            Show <strong>EP-1320 Medieval</strong> in the catalog (experimental).<br />
-            Different KEYHASH — on EP-133/40 it soft-rejects to RDY / bootloader. Off by default.
-          </span>
-        </label>
         <p class="warn" id="medieval-warn" hidden></p>
-        <p class="hint dim">
-          Own an EP-1320? The <a href="./medieval-lab.html">medieval lab</a> runs one guided
-          probe flash with an automatic restore and gives you a log to send back.
-        </p>
       </div>
 
       <div class="rail rewrite-rail">
@@ -345,7 +334,7 @@ see the four-byte rewrite</p>
         Firmwares: TE’s
         <a href="https://teenage.engineering/_software/releases.json" target="_blank" rel="noreferrer">releases.json</a>
         (live via <code>node web/serve.mjs</code>).
-        EP-133 / EP-40 by default; Medieval opt-in only.
+        EP-133 / EP-40. The EP-1320 Medieval can’t cross-flash (different signing key).
       </p>
 
       <section class="changelog" aria-labelledby="changelog-h">

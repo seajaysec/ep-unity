@@ -27,21 +27,14 @@ Video demo of result: **[youtube.com/watch?v=_iU3sdBdjdo][video]**
 | 5 · factory projects | Thin a factory `.pak` down to just the samples its pads reference, with a free-space check that blocks a restore that won't fit. |
 | — | A **play 10s demo** button in the device bar that plays something different depending on which firmware is running. |
 
-## EP-1320 Medieval lab
+## EP-1320 Medieval: not supported
 
-[`medieval-lab.html`](web/medieval-lab.html) is a test bench for EP-1320 owners. It asks one
-question: will a Medieval boot an EP-133/EP-40 image? The two are signed with different keys
-(KEYHASH), so the expected answer is no. The page runs a read-only connection check, flashes
-the probe image at the Medieval SKU, records what the unit reports after reboot, and flashes
-stock Medieval firmware back automatically (up to three tries). It then gives you a short
-summary and a full wire log to send back.
-
-**Result on real hardware (2026-09-29):** an EP-1320 (OS 1.5.0, bootloader 1000.0.6,
-SysEx device byte `0x35`) refused in-app DFU, took the EP-40 2.5.1 image from its
-bootloader, then rejected it at boot and stayed in the bootloader. The lab's automatic
-restore put stock 1.5.0 back and the unit came up normal. Together with EP-133/40
-rejecting Medieval images, cross-flashing between the Medieval and KO/Riddim is closed
-in both directions without the signing keys.
+The Medieval's firmware is signed with a different key from the EP-133 / EP-40's, and each
+side rejects the other's images. Both directions were tested: a Medieval image on an
+EP-133, and an EP-40 image on a real EP-1320 (2026-09-29). Both units fell back to their
+bootloaders and recovered with stock firmware. ep-unity therefore refuses any flash that
+mixes the two; flashing stock Medieval firmware back onto a Medieval is still allowed, for
+recovery.
 
 ## It never contacts teenage.engineering
 
