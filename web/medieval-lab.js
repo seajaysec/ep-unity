@@ -452,6 +452,7 @@ function renderFwLinks() {
     const ul = $(id)
     ul.replaceChildren()
     for (const d of devices.filter((d) => skus.includes(d.sku))) {
+      if (!d.fwUrl) continue
       const li = document.createElement('li')
       const a = document.createElement('a')
       a.href = d.fwUrl

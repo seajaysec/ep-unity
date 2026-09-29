@@ -9,6 +9,7 @@ import {
   SKU_EP133,
   SKU_EP40,
   SKU_MEDIEVAL,
+  TE032_KNOWN,
 } from './lib/catalog.js'
 import { parseTfw, rewriteSku, rewrittenFilename } from './lib/tfw.js'
 import { TeDfuSession, TeError, parseDebugFrame } from './lib/midi.js'
@@ -931,17 +932,16 @@ function applyTheme() {
 function stockRecoverEntry() {
   // Bootloader GREET reports the hardware SKU (AS001 after Medieval reject on EP-133).
   const greet = deviceSku()
-  const recoverSku = isEp40Sku(greet) ? SKU_EP40 : SKU_EP133
+  // A Medieval in its bootloader must go back to Medieval stock, not EP-133.
+  const medieval = greet === SKU_MEDIEVAL || /1320/.test(state.session?.device?.metadata?.product || '')
+  const recoverSku = medieval ? SKU_MEDIEVAL : isEp40Sku(greet) ? SKU_EP40 : SKU_EP133
   const fromCatalog = (state.fwDevices || []).find((d) => d.sku === recoverSku)
+  const fallback = TE032_KNOWN.find((d) => d.sku === recoverSku)
   return {
     sku: recoverSku,
     product: productLabel(recoverSku).short,
-    fwUrl:
-      fromCatalog?.fwUrl ||
-      (recoverSku === SKU_EP40
-        ? 'https://teenage.engineering/_software/ep-40/ep-40_firmware_2_5_1.tfw'
-        : 'https://teenage.engineering/_software/ep-133/ep-133_firmware_2_5_1.tfw'),
-    version: fromCatalog?.version || '2.5.1',
+    fwUrl: fromCatalog?.fwUrl || fallback.fwUrl,
+    version: fromCatalog?.version || fallback.version,
   }
 }
 
@@ -1061,6 +1061,7 @@ function renderFwLinks(devices) {
     return true
   })
   for (const d of shown) {
+    if (!d.fwUrl) continue
     const li = document.createElement('li')
     const a = document.createElement('a')
     a.href = d.fwUrl
