@@ -70,7 +70,7 @@ export function probeVerdict(after, probeVersion, ctx = {}) {
     return {
       kind: 'accepted',
       label: 'ACCEPTED',
-      detail: `Unit booted OS ${os} from the probe image. Check the screen and pads, then restore stock.`,
+      detail: `Unit booted OS ${os} from the probe image. It stays installed unless you restore stock.`,
       needsRestore: false,
     }
   }

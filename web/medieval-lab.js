@@ -348,11 +348,13 @@ async function runProbe() {
     verdict('probe-verdict', `${v.label}: ${v.detail}`, v.kind === 'accepted' ? 'ok' : 'busy')
 
     if (v.kind === 'accepted') {
-      report.result = 'ACCEPTED — Medieval booted the probe image; waiting for manual restore'
+      report.result = 'ACCEPTED — Medieval booted the probe image; left installed'
       verdict(
         'probe-verdict',
-        `ACCEPTED: the Medieval booted ${probeInfo.version}. Look at the screen and try a few pads, ` +
-          'copy the summary, then press "restore stock only".',
+        `ACCEPTED: the Medieval booted ${probeInfo.version}. Copy the summary now. ` +
+          'You can keep this firmware — it stays on until you flash something else. ' +
+          'Don’t SHIFT+ERASE unless you’re ready to lose the Medieval sounds (no backup path yet). ' +
+          'To go back, press "restore stock only" any time.',
         'ok',
       )
       return
