@@ -88,8 +88,6 @@ const state = {
   occupiedSlots: [],
   /** @type {'before' | 'after'} */
   hexView: 'after',
-  /** Opt-in EP-1320 Medieval experimental path (localStorage). */
-  medievalExperimental: false,
   /** Set once at boot; false disables connect and shows the capability banner. */
   midiCapable: true,
   /** Serial the risk acknowledgements were checked for — swapping units clears them. */
@@ -112,31 +110,13 @@ const connectBtn = $('connect')
 const risk = $('risk')
 const riskNor = $('risk-nor')
 const riskSerial = $('risk-serial')
-const medievalExp = $('medieval-exp')
 const medievalWarn = $('medieval-warn')
 
-const MEDIEVAL_EXP_KEY = 'ep-unity.medievalExperimental'
-
-function loadMedievalExperimental() {
-  try {
-    return localStorage.getItem(MEDIEVAL_EXP_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-function setMedievalExperimental(on) {
-  state.medievalExperimental = !!on
-  try {
-    localStorage.setItem(MEDIEVAL_EXP_KEY, on ? '1' : '0')
-  } catch {
-    /* ignore */
-  }
-  if (medievalExp) medievalExp.checked = state.medievalExperimental
-  renderFwLinks(state.fwDevices)
-  renderMedievalWarn()
-  updateActions()
-  refreshPreview()
+// The old opt-in checkbox is gone; drop its stored flag.
+try {
+  localStorage.removeItem('ep-unity.medievalExperimental')
+} catch {
+  /* ignore */
 }
 const hexEl = $('hex')
 const metaEl = $('meta')
@@ -465,35 +445,33 @@ function isBootloader() {
   return deviceMode() === 'bootloader'
 }
 
-/** True when device or image involves Medieval without the opt-in. */
-function medievalNeedsOptIn() {
-  if (state.medievalExperimental) return false
-  return isMedievalSku(deviceSku()) || isMedievalSku(state.info?.sku || '')
+/**
+ * Medieval and KO/Riddim images are signed with different keys and each side
+ * rejects the other's (EP-133 tested with a Medieval image, a real EP-1320 with
+ * an EP-40 image — docs/research/dfu-captures/RESULTS.md §2, §5). So any flash
+ * mixing the two is blocked. Stock Medieval onto a Medieval stays allowed: it
+ * is how a unit stuck in its bootloader gets out.
+ */
+function medievalMismatch() {
+  const image = state.info?.sku || ''
+  const device = deviceSku()
+  if (!image || !device) return false
+  return isMedievalSku(image) !== isMedievalSku(device)
 }
 
 function renderMedievalWarn() {
   if (!medievalWarn) return
-  const deviceMed = isMedievalSku(deviceSku())
-  const imageMed = isMedievalSku(state.info?.sku || '')
-  if (!deviceMed && !imageMed) {
+  if (!medievalMismatch()) {
     medievalWarn.hidden = true
     medievalWarn.textContent = ''
     return
   }
   medievalWarn.hidden = false
-  if (!state.medievalExperimental) {
-    medievalWarn.textContent = lines(
-      'EP-1320 Medieval detected (device and/or image). Different KEYHASH: tested both ways, rejected both ways.',
-      'On EP-133/40 a Medieval image typically soft-rejects to RDY/bootloader (recoverable).',
-      'Enable the experimental checkbox to flash or export wire files that involve Medieval.',
-    )
-  } else {
-    medievalWarn.textContent = lines(
-      'Medieval experimental is ON.',
-      'EP-133/40 reject Medieval images, and a real EP-1320 rejected an EP-40 image (both recovered).',
-      'Cross-flashing a Medieval does not work; this path only proves that.',
-    )
-  }
+  medievalWarn.textContent = lines(
+    'EP-1320 Medieval firmware and EP-133 / EP-40 firmware are signed with different keys.',
+    'Each rejects the other — tested both ways — so ep-unity will not flash across them.',
+    'A Medieval can only take stock Medieval firmware.',
+  )
 }
 
 function renderSupertoneWarn() {
@@ -735,6 +713,18 @@ async function connect() {
       console.warn('storage probe failed', err)
       invalidateLiveStorage()
       statusEl.textContent = 'connected (free-space probe failed — restore will probe again)'
+      // The probe released the DFU port; without re-opening it, flash stays
+      // disabled even though the unit answered GREET a moment ago.
+      if (!state.session?.device) {
+        try {
+          state.session = await TeDfuSession.open()
+          await state.session.connect()
+          rememberDevice(state.session.device)
+        } catch (reopenErr) {
+          console.warn('DFU re-open after probe failure failed', reopenErr)
+          state.session = null
+        }
+      }
     } finally {
       state.busy = false
     }
@@ -904,10 +894,10 @@ function applyTheme() {
       `bootloader (RDY) · ${dLabel.long}`,
       'flash stock firmware to leave update mode',
     )
-  } else if (deviceFlag === 'ep1320' && !state.medievalExperimental) {
+  } else if (deviceFlag === 'ep1320') {
     brandSub.textContent = lines(
       `connected ${dLabel.long}`,
-      'experimental path locked (opt-in in firmware panel)',
+      'cross-flash not possible (different signing key)',
     )
   } else if (deviceFlag && imageFlag && deviceFlag !== imageFlag) {
     brandSub.textContent = `${iLabel.long} image → flash on ${dLabel.long}`
@@ -1056,10 +1046,9 @@ function updateRewritePanel() {
 
 function renderFwLinks(devices) {
   fwLinks.replaceChildren()
-  const shown = (devices || []).filter((d) => {
-    if (isMedievalSku(d.sku) || d.experimental) return state.medievalExperimental
-    return true
-  })
+  // Medieval stock is only useful to a connected Medieval (stock reflash / recovery).
+  const deviceMed = isMedievalSku(deviceSku())
+  const shown = (devices || []).filter((d) => !(isMedievalSku(d.sku) || d.experimental) || deviceMed)
   for (const d of shown) {
     if (!d.fwUrl) continue
     const li = document.createElement('li')
@@ -1068,20 +1057,16 @@ function renderFwLinks(devices) {
     a.target = '_blank'
     a.rel = 'noreferrer'
     const ver = d.version ? ` ${d.version}` : ''
-    const tag = d.experimental || isMedievalSku(d.sku) ? ' · experimental' : ''
-    a.textContent = `download ${d.product}${ver} (${d.sku})${tag} ↗`
+    a.textContent = `download ${d.product}${ver} (${d.sku}) ↗`
     li.append(a)
     fwLinks.append(li)
   }
-  const hiddenMed = (devices || []).some((d) => isMedievalSku(d.sku) || d.experimental)
   const mine = loadUserCatalog()
   fwCatalogStatus.textContent = lines(
     mine
       ? `from your releases.json, saved ${mine.savedAt.slice(0, 10)}`
       : `${shown.length} product${shown.length === 1 ? '' : 's'}`,
-    hiddenMed && !state.medievalExperimental
-      ? 'Medieval hidden until experimental opt-in'
-      : null,
+    null,
   )
 }
 
@@ -1480,7 +1465,7 @@ function setMeta(info) {
 }
 
 function updateActions() {
-  const medBlocked = medievalNeedsOptIn()
+  const medBlocked = medievalMismatch()
   const ready = !!(
     state.bytes &&
     state.session?.device &&
@@ -1513,12 +1498,12 @@ function updateActions() {
     )
   } else if (medBlocked) {
     hint.textContent = lines(
-      'Medieval involved — enable experimental support in the firmware panel',
-      'before flash or wire export.',
+      'Medieval and EP-133 / EP-40 firmware reject each other —',
+      'this combination cannot be flashed or exported.',
     )
   } else if (!state.bytes) {
     hint.textContent = lines(
-      'Load a TE032 .tfw (EP-133 / EP-40; Medieval after opt-in).',
+      'Load an EP-133 or EP-40 .tfw (on a Medieval: stock Medieval only).',
       'Panel 2 shows the SKU transform.',
     )
   } else if (!state.session?.device) {
@@ -1548,6 +1533,8 @@ function updateActions() {
         )
   }
   renderMedievalWarn()
+  // Medieval stock link shows only while a Medieval is connected.
+  if (state.fwDevices) renderFwLinks(state.fwDevices)
 }
 
 function refreshPreview() {
@@ -1701,8 +1688,8 @@ async function loadFile(file) {
 function downloadRewritten() {
   const sku = deviceSku()
   if (!state.bytes || !sku) return
-  if (medievalNeedsOptIn()) {
-    showError('flash', 'Enable Medieval experimental support before exporting a wire .tfw that involves EP-1320.')
+  if (medievalMismatch()) {
+    showError('flash', 'Medieval and EP-133 / EP-40 firmware reject each other — no wire file for this pair.')
     return
   }
   const out = rewriteSku(state.bytes, sku)
@@ -1789,8 +1776,8 @@ async function flash() {
   ) {
     return
   }
-  if (medievalNeedsOptIn()) {
-    showError('flash', 'Medieval experimental support is off. Enable the checkbox if you really want to proceed.')
+  if (medievalMismatch()) {
+    showError('flash', 'Medieval and EP-133 / EP-40 firmware reject each other — ep-unity will not flash this pair.')
     return
   }
   const sku = deviceSku()
@@ -1803,12 +1790,6 @@ async function flash() {
   const supertoneHit = isEp133Sku(targetSku) && state.supertone?.projectCount
   const warnings = []
 
-  if (isMedievalSku(from) || isMedievalSku(targetSku)) {
-    warnings.push(
-      'MEDIEVAL EXPERIMENTAL — different KEYHASH, no factory-pack story, unknown NOR layout. ' +
-        'This path is untested in ep-unity and can brick or soft-brick the unit.',
-    )
-  }
   if (supertoneHit) {
     const list = state.supertone.projects
       .map((p) => `P${String(p.project).padStart(2, '0')}`)
@@ -1883,7 +1864,8 @@ async function flash() {
     if (!cleaned) return
   }
 
-  const medievalImage = isMedievalSku(from) || isMedievalSku(targetSku)
+  // Only a mismatched pair could hit the Medieval reject story, and those are blocked above.
+  const medievalImage = isMedievalSku(from) !== isMedievalSku(targetSku)
   // Outlives the DFU session: watchFlashReturn needs it to build a report link.
   state.lastFlash = {
     imageSku: from,
@@ -2593,7 +2575,6 @@ copySerialBtn.addEventListener('click', () => void copySerial())
 risk.addEventListener('change', updateActions)
 riskNor.addEventListener('change', updateActions)
 riskSerial.addEventListener('change', updateActions)
-medievalExp?.addEventListener('change', () => setMedievalExperimental(medievalExp.checked))
 $('recover-focus-drop')?.addEventListener('click', focusRecoverDrop)
 $('pak-all').addEventListener('click', () => {
   projList.querySelectorAll('input').forEach((el) => {
@@ -2613,9 +2594,6 @@ backupBtn.addEventListener('click', () => void runBackup())
 $('demo-btn')?.addEventListener('click', () => void startDemo())
 // A page unload mid-demo would otherwise leave the unit holding a chord.
 window.addEventListener('pagehide', stopDemo)
-
-state.medievalExperimental = loadMedievalExperimental()
-if (medievalExp) medievalExp.checked = state.medievalExperimental
 
 state.midiCapable = checkCapability()
 if (!state.midiCapable) {
