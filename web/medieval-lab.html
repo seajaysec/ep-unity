@@ -31,7 +31,7 @@
     .mlab #log { max-height: 18rem; overflow: auto; }
     .mlab button:disabled { opacity: 0.45; cursor: not-allowed; }
     .mlab a { color: var(--copper-hot); }
-    .mlab ol { margin: 0 0 1rem 1.2rem; padding: 0; color: var(--silk-dim); line-height: 1.55; }
+    .mlab .fw-links { margin: 0.35rem 0 0; }
   </style>
 </head>
 <body>
@@ -75,18 +75,18 @@
       <section>
         <h2>2 · firmware files</h2>
         <p class="hint">
-          Download both from Teenage Engineering yourself — this page never fetches firmware.
+          Download both from Teenage Engineering with the links below — the same list the main
+          tool uses. This page never fetches firmware itself.
         </p>
-        <ol>
-          <li>Probe image: EP-133 <a href="https://teenage.engineering/downloads/ep-133" target="_blank" rel="noreferrer">download page ↗</a></li>
-          <li>Restore image: EP-1320 stock <a href="https://teenage.engineering/downloads/ep-1320" target="_blank" rel="noreferrer">download page ↗</a></li>
-        </ol>
         <label class="file">probe image (EP-133 or EP-40 .tfw)
           <input type="file" id="file-probe" accept=".tfw" />
         </label>
-        <label class="file">restore image (stock EP-1320 .tfw)
+        <ul class="fw-links" id="fw-links-probe"></ul>
+        <label class="file" style="margin-top:1rem">restore image (stock EP-1320 .tfw)
           <input type="file" id="file-stock" accept=".tfw" />
         </label>
+        <ul class="fw-links" id="fw-links-stock"></ul>
+        <p class="hint dim" id="fw-catalog-status"></p>
         <p class="out" id="files-status">no files yet</p>
       </section>
 

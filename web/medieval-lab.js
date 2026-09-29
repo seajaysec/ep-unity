@@ -6,7 +6,7 @@
 import { TeDfuSession, frameHex, parseDebugFrame } from './lib/midi.js'
 import { parseTfw } from './lib/tfw.js'
 import { flashFirmware, prepareImage } from './lib/dfu.js'
-import { SKU_MEDIEVAL } from './lib/catalog.js'
+import { SKU_EP133, SKU_EP40, SKU_MEDIEVAL, loadFirmwareCatalog } from './lib/catalog.js'
 import {
   LAB_VERSION,
   checkDevice,
@@ -50,7 +50,8 @@ function log(msg) {
   const el = $('log')
   el.textContent += `${(now() / 1000).toFixed(1)}s  ${msg}\n`
   el.scrollTop = el.scrollHeight
-  renderSummary()
+  renderFwLinks()
+renderSummary()
 }
 
 function tap(dir, data, port) {
@@ -246,7 +247,8 @@ async function flashOnce(role, file) {
   session?.close()
   session = null
   f.after = await waitForUnit({ timeoutMs: f.beginError ? 20000 : 120000 })
-  renderSummary()
+  renderFwLinks()
+renderSummary()
   return f
 }
 
@@ -303,7 +305,8 @@ async function runConnect() {
     session?.close()
     session = null
     setBusy(false)
-    renderSummary()
+    renderFwLinks()
+renderSummary()
   }
 }
 
@@ -384,7 +387,8 @@ async function runProbe() {
     session = null
     progress(null)
     setBusy(false)
-    renderSummary()
+    renderFwLinks()
+renderSummary()
   }
 }
 
@@ -403,7 +407,8 @@ async function runRestoreOnly() {
     session = null
     progress(null)
     setBusy(false)
-    renderSummary()
+    renderFwLinks()
+renderSummary()
   }
 }
 
@@ -437,6 +442,31 @@ async function loadFile(which, input) {
   else lines.push('', 'files ok')
   $('files-status').textContent = lines.join('\n')
   updateButtons()
+}
+
+// ── Firmware links (same catalog as the main tool, incl. a saved releases.json) ──
+
+function renderFwLinks() {
+  const { devices, fromUser, savedAt } = loadFirmwareCatalog()
+  const fill = (id, skus) => {
+    const ul = $(id)
+    ul.replaceChildren()
+    for (const d of devices.filter((d) => skus.includes(d.sku))) {
+      const li = document.createElement('li')
+      const a = document.createElement('a')
+      a.href = d.fwUrl
+      a.target = '_blank'
+      a.rel = 'noreferrer'
+      a.textContent = `download ${d.product}${d.version ? ` ${d.version}` : ''} (${d.sku}) ↗`
+      li.append(a)
+      ul.append(li)
+    }
+  }
+  fill('fw-links-probe', [SKU_EP133, SKU_EP40])
+  fill('fw-links-stock', [SKU_MEDIEVAL])
+  $('fw-catalog-status').textContent = fromUser
+    ? `versions from your releases.json (saved ${String(savedAt).slice(0, 10)} in the main tool)`
+    : 'built-in version list — drop a newer releases.json into the main tool to update it'
 }
 
 // ── Wire-up ───────────────────────────────────────────────────────────────
@@ -484,4 +514,5 @@ window.addEventListener('beforeunload', (e) => {
   e.returnValue = ''
 })
 
+renderFwLinks()
 renderSummary()
